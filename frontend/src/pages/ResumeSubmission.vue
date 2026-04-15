@@ -96,18 +96,91 @@
         </div>
       </div>
     </div>
+
+    <van-popup v-model:show="dialogPopupOptions.show">
+      <div class="dialog-content">
+        <div class="dialog-title">
+          <div class="text-title">{{ dialogPopupOptions.title }}</div>
+          <img v-if="dialogPopupOptions.type !== 3" src="../assets/svgs/close.svg" class="svg-icon"
+            @click="closeDialog" />
+        </div>
+        <template v-if="dialogPopupOptions.type === 1">
+          <uv-checkbox-group v-model="checkboxValue" activeColor="#ffffff" iconColor="#0080FF"
+            @change="handleCheckboxChange">
+            <div class="section-list-box">
+              <div :class="['job-item', { 'checked': job.isChecked }]" v-for="(job, idx) in jobs" :key="idx"
+                @click="handleJobCheckSelect(idx)">
+                <div class="check-sele">
+                  <uv-checkbox :name="idx" customStyle="margin-top: 2px;" />
+                </div>
+                <div style="flex: 1; width: 280rpx">
+                  <div class="job-title">
+                    <div class="text-overflow">{{ job.title }}</div>
+                    <div class="job-salary">{{ job.salary }}</div>
+                  </div>
+                  <div class="job-info">
+                    <div>
+                      <div> 招聘人数：{{ job.count }} | {{ job.degree }} | {{ job.city }} </div>
+                      <div> 招聘专业：英语、商务英语 </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </uv-checkbox-group>
+          <div class="dialog-footer">
+            <div class="btn-delivery" @click="deliveryFun">投递简历</div>
+          </div>
+        </template>
+        <template v-else-if="dialogPopupOptions.type === 2">
+          <div class="cv-list">
+            <div class="cv-item" v-for="cv in cvList" :key="cv.id">
+              <div class="cv-info text-overflow">
+                <div v-if="cv.isDefault" class="default-tag">默认</div>
+                <div class="cv-name">{{ cv.name }}</div>
+              </div>
+              <div class="delivery-btn" @click="handleCVDelivery(cv)">投递</div>
+            </div>
+          </div>
+        </template>
+        <template v-else-if="dialogPopupOptions.type === 3">
+          <div class="delivery-tip-content">
+            <div class="success-message">
+              <div class="success-text">简历投递成功！</div>
+              <div class="tip-text">继续投递简历，请点击<text class="highlight">【继续投递简历】</text></div>
+              <div class="tip-text">若不再投递简历，请点击<text class="highlight">【退出登录】</text>或 <text class="time-text">{{ timer
+                  }}S</text> 后系统自动退出登录</div>
+            </div>
+            <div class="tip-buttons">
+              <div class="btn-exit" @click="handleExitLogin">退出登录</div>
+              <div class="btn-continue" @click="handleContinueDelivery">继续投递简历</div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </van-popup>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useResumeStore } from '../store/resume'
 import CircleProgress from '../components/CircleProgress.vue'
 
 const resumeStore = useResumeStore()
 const jobs = resumeStore.jobs
 const cvList = resumeStore.cvList
+const dialogPopupOptions = ref({
+  title: '',
+  type: 1,
+  width: '711px',
+  show: false
+})
 
 const openDialog = (type) => {
+  dialogPopupOptions.value.type = type
+  dialogPopupOptions.value.show = true
+  dialogPopupOptions.value.title = type === 1 ? '请选择你需要投递的职位' : type === 2 ? '选择简历' : '投递简历提示'
   console.log('打开弹窗类型：', type)
   // 这里可以使用Vant的Dialog组件
   if (type === 1) {
