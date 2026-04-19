@@ -85,7 +85,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 // 页面加载完成后执行
-                android.util.Log.d("WebView", "页面加载完成: " + url);
+//                android.util.Log.d("WebView", "页面加载完成: " + url);
                 // Toast.makeText(MainActivity.this, "页面加载完成", Toast.LENGTH_SHORT).show();
             }
         });
@@ -99,7 +99,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
                 int lineNumber = consoleMessage.lineNumber();
                 ConsoleMessage.MessageLevel level = consoleMessage.messageLevel();
                 
-                android.util.Log.d("WebView", "[" + level + "] " + message + " -- From line " + lineNumber + " of " + sourceId);
+//                android.util.Log.d("WebView", "[" + level + "] " + message + " -- From line " + lineNumber + " of " + sourceId);
                 return super.onConsoleMessage(consoleMessage);
             }
         });
@@ -149,7 +149,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
     // 获取显示设备并初始化双屏显示
     public void updateContents() {
         Display[] displays = mDisplayManager.getDisplays();
-        android.util.Log.d("MainActivity", "显示设备数量: " + displays.length);
+//        android.util.Log.d("MainActivity", "显示设备数量: " + displays.length);
         
         StringBuilder displayInfo = new StringBuilder();
         displayInfo.append("检测到 " + displays.length + " 个显示设备\n");
@@ -160,18 +160,16 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
             displayInfo.append("名称=" + display.getName() + ", ");
             displayInfo.append("ID=" + display.getDisplayId() + ", ");
             displayInfo.append("尺寸=" + display.getWidth() + "x" + display.getHeight() + "\n");
-            android.util.Log.d("MainActivity", "屏幕" + i + ": " + display.getName() + ", ID=" + display.getDisplayId() + ", 尺寸=" + display.getWidth() + "x" + display.getHeight());
+//            android.util.Log.d("MainActivity", "屏幕" + i + ": " + display.getName() + ", ID=" + display.getDisplayId() + ", 尺寸=" + display.getWidth() + "x" + display.getHeight());
         }
         
         if (displays.length >= 2) {
-            android.util.Log.d("MainActivity", "准备在第二个屏幕上显示CvList页面");
+//            android.util.Log.d("MainActivity", "准备在第二个屏幕上显示CvList页面");
             // 只有当myPresentation为null时才创建，避免重复创建
             if (myPresentation == null) {
-                Toast.makeText(this, displayInfo.toString(), Toast.LENGTH_LONG).show();
-                Toast.makeText(this, "准备显示第二个屏幕", Toast.LENGTH_SHORT).show();
+//                Toast.makeText(this, displayInfo.toString(), Toast.LENGTH_LONG).show();
+//                Toast.makeText(this, "准备显示第二个屏幕", Toast.LENGTH_SHORT).show();
                 showPresentation(displays[1]);
-            } else {
-                android.util.Log.d("MainActivity", "副屏已经存在，不需要重新创建");
             }
         } else {
             android.util.Log.d("MainActivity", "未检测到第二个屏幕，只有一个显示设备");
@@ -187,21 +185,21 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
     // 将内容显示到第二个屏幕
     private void showPresentation(Display display) {
         try {
-            android.util.Log.d("MainActivity", "创建MyPresentation，Display ID: " + display.getDisplayId());
-            Toast.makeText(this, "正在创建第二个屏幕内容...", Toast.LENGTH_SHORT).show();
+//            android.util.Log.d("MainActivity", "创建MyPresentation，Display ID: " + display.getDisplayId());
+//            Toast.makeText(this, "正在创建第二个屏幕内容...", Toast.LENGTH_SHORT).show();
             
             if (myPresentation == null) {
                 myPresentation = new MyPresentation(this, display);
-                android.util.Log.d("MainActivity", "MyPresentation实例已创建");
+//                android.util.Log.d("MainActivity", "MyPresentation实例已创建");
             }
             
             if (myPresentation != null) {
                 myPresentation.show();
-                android.util.Log.d("MainActivity", "MyPresentation.show()调用成功");
-                Toast.makeText(this, "第二个屏幕已显示CvList页面", Toast.LENGTH_SHORT).show();
+//                android.util.Log.d("MainActivity", "MyPresentation.show()调用成功");
+//                Toast.makeText(this, "第二个屏幕已显示CvList页面", Toast.LENGTH_SHORT).show();
             } else {
                 android.util.Log.e("MainActivity", "MyPresentation实例为null");
-                Toast.makeText(this, "创建第二个屏幕失败: 实例为null", Toast.LENGTH_LONG).show();
+//                Toast.makeText(this, "创建第二个屏幕失败: 实例为null", Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
             android.util.Log.e("MainActivity", "显示第二个屏幕失败: " + e.getMessage());

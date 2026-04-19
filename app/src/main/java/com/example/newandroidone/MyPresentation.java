@@ -73,7 +73,7 @@ public class MyPresentation extends Presentation {
                             // statusText.setText(msg);
                         // }
                         if (getContext() != null) {
-                            Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+//                            Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "onPageStarted异常: " + e.getMessage());
@@ -90,7 +90,7 @@ public class MyPresentation extends Presentation {
                         //     statusText.setText("页面加载完成\n当前页面: resumeSubmission");
                         // }
                         if (getContext() != null) {
-                            Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+//                            Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "onPageFinished异常: " + e.getMessage());
@@ -107,7 +107,7 @@ public class MyPresentation extends Presentation {
                         //     statusText.setText("加载错误: " + description);
                         // }
                         if (getContext() != null) {
-                            Toast.makeText(getContext(), msg, Toast.LENGTH_LONG).show();
+//                            Toast.makeText(getContext(), msg, Toast.LENGTH_LONG).show();
                         }
                     } catch (Exception e) {
                         Log.e(TAG, "onReceivedError异常: " + e.getMessage());
@@ -140,7 +140,7 @@ public class MyPresentation extends Presentation {
             
             Log.d(TAG, "MyPresentation onCreate完成");
             if (getContext() != null) {
-                Toast.makeText(getContext(), "第二个屏幕Presentation已创建", Toast.LENGTH_SHORT).show();
+//                Toast.makeText(getContext(), "第二个屏幕Presentation已创建", Toast.LENGTH_SHORT).show();
             }
             
             // 初始加载home页面
@@ -177,7 +177,7 @@ public class MyPresentation extends Presentation {
                 //     statusText.setText(errorMsg);
                 // }
                 if (getContext() != null) {
-                    Toast.makeText(getContext(), errorMsg, Toast.LENGTH_LONG).show();
+//                    Toast.makeText(getContext(), errorMsg, Toast.LENGTH_LONG).show();
                 }
             }
         } catch (Exception e) {

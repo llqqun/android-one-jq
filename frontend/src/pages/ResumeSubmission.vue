@@ -113,7 +113,7 @@
       </div>
     </div>
 
-    <van-popup v-model:show="dialogPopupOptions.show" round>
+    <van-popup v-model:show="dialogPopupOptions.show" round :close-on-click-overlay="false">
       <div class="dialog-content" :style="{ width: dialogPopupOptions.width }">
         <div class="dialog-title">
           <div class="text-title">{{ dialogPopupOptions.title }}</div>
@@ -333,11 +333,17 @@ const handleCVDelivery = (cv) => {
 }
 
 const handleExitLogin = () => {
+  if(timeNum.value) {
+    clearInterval(timeNum.value)
+    timeNum.value = null
+  }
+  closeDialog();
   console.log('退出登录')
 }
 
 const handleContinueDelivery = () => {
   console.log('继续投递简历')
+  closeDialog();
 }
 const closeDialog = () => {
   dialogPopupOptions.value.show = false;
@@ -755,6 +761,9 @@ const getFirmwareVersion = () => {
   padding: 14px;
   margin-top: 16px;
   background-color: #f7fbff;
+  .check-sele {
+      padding-right: 8px;
+  }
 }
 
 .job-title {
@@ -799,7 +808,7 @@ const getFirmwareVersion = () => {
   background-color: #0080ff;
   color: #fff;
   border: none;
-  padding: 6px 12px;
+  padding: 8px 16px;
   border-radius: 4px;
   font-size: 12px;
 }
@@ -937,7 +946,7 @@ const getFirmwareVersion = () => {
     background-color: #0080ff;
     color: #fff;
     font-size: 14px;
-    padding: 6px 20px;
+    padding: 10px 24px;
     border-radius: 4px;
   }
 
@@ -984,16 +993,16 @@ const getFirmwareVersion = () => {
       color: #333333;
       border: 1px solid #dddddd;
       font-size: 14px;
-      padding: 8px 24px;
+      padding: 10px 24px;
       border-radius: 4px;
-      margin-right: 10px;
+      margin-right: 12px;
     }
 
     .btn-continue {
       background-color: #0080ff;
       color: #fff;
       font-size: 14px;
-      padding: 8px 24px;
+      padding: 10px 24px;
       border-radius: 4px;
     }
   }
@@ -1008,9 +1017,9 @@ const getFirmwareVersion = () => {
     background-color: #0080ff;
     color: #fff;
     border: none;
-    padding: 6px 12px;
+    padding: 10px 16px;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 16px;
   }
 }
 
