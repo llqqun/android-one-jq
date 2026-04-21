@@ -95,8 +95,19 @@ export const loginApi = {
   getHRQRCode: (params) => api.get('/machine/login/get_qr_hr', { params }),
   // 轮询检查HR扫码状态
   checkHRLoginStatus: (params) => api.get('/machine/login/check_hr', { params }),
-  // 获取企业详情及职位信息
-  getCompanyDetail: () => api.get('/machine/company/detail')
+  /**
+   * 获取企业详情及职位信息
+   * @param {*} data 企业账号密码登录响应数据
+   * @param {*} data.company_id 企业ID
+   * @param {*} data.school_id 学校ID
+   * @param {*} data.page 页码
+   * @param {*} data.page_size 每页数量
+   * 
+   * @returns {*} data.company 企业详情
+   * @returns {*} data.credit 职位分类
+   * @returns {*} data.jobs 职位列表
+   */
+  getCompanyDetail: (data) => api.get('/machine/company/detail', { params: data })
 }
 
 export default api

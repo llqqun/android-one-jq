@@ -2,34 +2,46 @@
   <div class="page-container">
     <div class="headers">
       <div class="header-left">
-        <div class="company-logo">公司logo</div>
-        <div class="company-name">长沙市云聘教育科技有限公司</div>
+        <div class="company-logo">
+          <img :src="companyInfo?.logo_url" alt="公司logo" class="logo-image" />
+        </div>
+        <div class="company-name">{{ companyInfo?.company_name }}</div>
       </div>
       <div class="header-right">
         <div class="van-search">
-          <input type="text" placeholder="搜索学生" class="van-search__input">
+          <input type="text" placeholder="搜索学生" class="van-search__input" />
         </div>
-        <img src="../assets/svgs/exit.svg" alt="exit" class="svg-icon" />
+        <img src="../assets/svgs/exit.svg" alt="exit" class="svg-icon" @click="logout" />
       </div>
     </div>
 
     <div class="content">
       <!-- 左侧职位分类 -->
       <div class="left-sidebar">
-        <div class="sidebar-header">职位分类</div>
-        <div class="category-list">
-          <div class="category-item" v-for="category in positionCategories" :key="category.id">
-            <div class="category-name">{{ category.name }}</div>
-            <div class="category-count">{{ category.count }}</div>
+        <div class="sidebar-header">招聘中的职位</div>
+        <div v-if="positionCategories.length > 0" class="category-list">
+          <div
+            class="category-item"
+            v-for="category in positionCategories"
+            :key="category.publish_id"
+            :class="{ active: category.publish_id === currentCategory?.publish_id }"
+            @click="switchCategory(category)">
+            <div class="category-name">{{ category.job_name }}</div>
+            <div class="category-count">{{ category.job_number }}</div>
           </div>
         </div>
+        <div v-else class="no-category">暂无职位分类</div>
       </div>
 
       <!-- 右侧内容 -->
       <div class="right-content">
         <div class="cv-list-container">
           <div class="tab-bar">
-            <div class="tab-item" v-for="tab in tabs" :key="tab.value" :class="{ active: activeTab === tab.value }" 
+            <div
+              class="tab-item"
+              v-for="tab in tabs"
+              :key="tab.value"
+              :class="{ active: activeTab === tab.value }"
               @click="switchTab(tab.value)">
               {{ tab.label }}
             </div>
@@ -44,11 +56,18 @@
               </div>
               <div v-else-if="error" class="error-container">
                 <div class="error-text">{{ error }}</div>
-                <div class="retry-btn" @click="resumeStore.fetchStudentResumes({ status: activeTab })">重试</div>
+                <div
+                  class="retry-btn"
+                  @click="resumeStore.fetchStudentResumes({ status: activeTab })">
+                  重试
+                </div>
               </div>
               <div v-else>
-                <div class="applicant-item" v-for="resume in studentResumes" :key="resume.id" 
-                  :class="{ active: selectedResume && selectedResume.id === resume.id }" 
+                <div
+                  class="applicant-item"
+                  v-for="resume in studentResumes"
+                  :key="resume.id"
+                  :class="{ active: selectedResume && selectedResume.id === resume.id }"
                   @click="selectResume(resume)">
                   <div class="applicant-header">
                     <div class="avatar">{{ resume.name.charAt(0) }}</div>
@@ -56,8 +75,16 @@
                       <div class="name-info">
                         <span class="name">{{ resume.name }}</span>
                         <div class="gender">
-                          <img v-if="resume.gender === 'male'" src="../assets/svgs/man.svg" alt="male" class="svg-icon" />
-                          <img v-else src="../assets/svgs/woman.svg" alt="female" class="svg-icon" />
+                          <img
+                            v-if="resume.gender === 'male'"
+                            src="../assets/svgs/man.svg"
+                            alt="male"
+                            class="svg-icon" />
+                          <img
+                            v-else
+                            src="../assets/svgs/woman.svg"
+                            alt="female"
+                            class="svg-icon" />
                         </div>
                         <span class="age">{{ resume.age }}岁</span>
                         <span class="apply-time">{{ resume.applyTime }}</span>
@@ -70,7 +97,10 @@
                     </div>
                   </div>
                   <div class="work-experience">
-                    <div class="exp-item" v-for="(exp, index) in resume.workExperience.slice(0, 2)" :key="index">
+                    <div
+                      class="exp-item"
+                      v-for="(exp, index) in resume.workExperience.slice(0, 2)"
+                      :key="index">
                       <div class="exp-bullet">
                         <img src="../assets/svgs/job.svg" alt="job" class="svg-icon" />
                       </div>
@@ -107,7 +137,10 @@
                 <div class="section">
                   <div class="section-title">教育经历</div>
                   <div class="section-content">
-                    <div class="education-item" v-for="(edu, index) in selectedResume.education" :key="index">
+                    <div
+                      class="education-item"
+                      v-for="(edu, index) in selectedResume.education"
+                      :key="index">
                       <div class="edu-period">{{ edu.period }}</div>
                       <div class="edu-info">
                         <div class="edu-school">{{ edu.school }}</div>
@@ -129,12 +162,17 @@
                 <div class="section">
                   <div class="section-title">工作经历</div>
                   <div class="section-content">
-                    <div class="work-item" v-for="(work, index) in selectedResume.workExperience" :key="index">
+                    <div
+                      class="work-item"
+                      v-for="(work, index) in selectedResume.workExperience"
+                      :key="index">
                       <div class="work-period">{{ work.period }}</div>
                       <div class="work-info">
                         <div class="work-company">{{ work.company }}</div>
                         <div v-if="work.position" class="work-position">{{ work.position }}</div>
-                        <div v-if="work.description" class="work-description">{{ work.description }}</div>
+                        <div v-if="work.description" class="work-description">
+                          {{ work.description }}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -144,7 +182,10 @@
                 <div class="section">
                   <div class="section-title">在校经历</div>
                   <div class="section-content">
-                    <div class="school-item" v-for="(school, index) in selectedResume.schoolExperience" :key="index">
+                    <div
+                      class="school-item"
+                      v-for="(school, index) in selectedResume.schoolExperience"
+                      :key="index">
                       <div class="school-period">{{ school.period }}</div>
                       <div class="school-description">{{ school.description }}</div>
                     </div>
@@ -155,8 +196,12 @@
               <!-- 操作按钮 -->
               <div class="action-buttons">
                 <div class="btn" @click="handleStatusChange(selectedResume, '不合适')">不合适</div>
-                <div class="btn btn-blue" @click="handleStatusChange(selectedResume, '有意向')">有意向</div>
-                <div class="btn btn-blue" @click="handleStatusChange(selectedResume, '拟录用')">拟录用</div>
+                <div class="btn btn-blue" @click="handleStatusChange(selectedResume, '有意向')">
+                  有意向
+                </div>
+                <div class="btn btn-blue" @click="handleStatusChange(selectedResume, '拟录用')">
+                  拟录用
+                </div>
               </div>
             </div>
             <div class="resume-detail empty" v-else>
@@ -170,38 +215,72 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
-import { useResumeStore } from '../store/resume'
+import { computed, onMounted, ref } from 'vue';
+import { useResumeStore } from '../store/resume';
+import { useRouter } from 'vue-router';
+import { loginApi } from '@/services/api.js';
 
-const resumeStore = useResumeStore()
+const resumeStore = useResumeStore();
+const router = useRouter();
 
-const positionCategories = resumeStore.positionCategories
-const studentResumes = resumeStore.studentResumes
-const tabs = resumeStore.tabs
-const activeTab = resumeStore.activeTab
-const selectedResume = computed(() => resumeStore.selectedResume)
-const loading = computed(() => resumeStore.loading)
-const error = computed(() => resumeStore.error)
+const positionCategories = ref([]);
+const currentCategory = ref(null);
+
+const switchCategory = (category) => {
+  currentCategory.value = category;
+}
+const studentResumes = resumeStore.studentResumes;
+const tabs = resumeStore.tabs;
+const activeTab = resumeStore.activeTab;
+const selectedResume = computed(() => resumeStore.selectedResume);
+const loading = computed(() => resumeStore.loading);
+const error = computed(() => resumeStore.error);
+const companyInfo = ref(null);
 
 const selectResume = (resume) => {
-  resumeStore.selectResume(resume)
-}
+  resumeStore.selectResume(resume);
+};
 
 const switchTab = (value) => {
-  resumeStore.switchTab(value)
+  resumeStore.switchTab(value);
   // 切换标签时重新获取对应状态的简历
-  resumeStore.fetchStudentResumes({ status: value })
-}
+  resumeStore.fetchStudentResumes({ status: value });
+};
 
 const handleStatusChange = (resume, status) => {
-  resumeStore.updateResumeStatus(resume, status)
-}
+  resumeStore.updateResumeStatus(resume, status);
+};
+
+const pageInit = async () => {
+  let companyLoginInfo = resumeStore.companyLoginInfo;
+  const companyLoginInfoStr = localStorage.getItem('companyLoginInfo');
+  if (!companyLoginInfo && companyLoginInfoStr) {
+    companyLoginInfo = JSON.parse(companyLoginInfoStr);
+  }
+  if (companyLoginInfo) {
+    const res = await loginApi.getCompanyDetail({
+      company_id: companyLoginInfo.company_id,
+      school_id: resumeStore.schoolId,
+      page: 1,
+      page_size: 10,
+    });
+    if (res.code === 1) {
+      companyInfo.value = res.data.company;
+      positionCategories.value = res.data.jobs.items;
+    }
+    console.log(res);
+  }
+};
+
+const logout = () => {
+  resumeStore.logout();
+  router.replace('/');
+};
 
 // 页面加载时获取数据
 onMounted(() => {
-  resumeStore.fetchPositionCategories()
-  resumeStore.fetchStudentResumes({ status: activeTab })
-})
+  pageInit();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -223,6 +302,11 @@ onMounted(() => {
   .header-left {
     @include flex-fun(row, flex-start, center);
     flex: 1;
+    .logo-image {
+      width: auto;
+      max-width: 150px;
+      max-height: 60px;
+    }
   }
 
   .header-right {
@@ -273,16 +357,19 @@ onMounted(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+
+  .no-category {
+    padding: 16px;
+    text-align: center;
+    color: #999999;
+  }
 }
 
 .sidebar-header {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: #333333;
   padding: 16px;
-  border-bottom: 1px solid #e8ecf4;
-  background-color: #f8f9fa;
 }
 
 .category-list {
@@ -298,19 +385,18 @@ onMounted(() => {
   padding: 14px 16px;
   font-size: 13px;
   color: #555555;
-  border-bottom: 1px solid #e8ecf4;
   transition: background-color 0.3s;
   cursor: pointer;
 }
 
-.category-item:hover {
+.category-item.active {
   background-color: #f7fbff;
+  border-radius: 30px 0 0 30px;
 }
 
 .category-count {
   font-size: 12px;
-  color: #999999;
-  background-color: #f0f0f0;
+  color: #F74D4D;
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -320,9 +406,9 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #E2F1FF;
+  border: 1px solid #e2f1ff;
   border-top-left-radius: 12px;
-  background-color: #F7FBFF;
+  background-color: #f7fbff;
   padding: 10px;
   margin-left: 10px;
 }
@@ -332,7 +418,7 @@ onMounted(() => {
   .left-sidebar {
     width: 150px;
   }
-  
+
   .applicant-list {
     width: 280px;
   }
@@ -342,7 +428,7 @@ onMounted(() => {
   .content {
     flex-direction: column;
   }
-  
+
   .left-sidebar {
     width: 100%;
     border-top-right-radius: 0;
@@ -350,24 +436,24 @@ onMounted(() => {
     border-bottom-right-radius: 12px;
     margin-bottom: 10px;
   }
-  
+
   .right-content {
     margin-left: 0;
     border-top-left-radius: 12px;
     border-top-right-radius: 12px;
   }
-  
+
   .cv-content {
     flex-direction: column;
     height: auto;
   }
-  
+
   .applicant-list {
     width: 100%;
     height: 300px;
     margin-bottom: 10px;
   }
-  
+
   .resume-detail {
     width: 100%;
     height: 400px;
@@ -387,7 +473,7 @@ onMounted(() => {
   width: 100%;
   padding: 0;
   background-color: #ffffff;
-  border-bottom: 1px solid #EEEEEE;
+  border-bottom: 1px solid #eeeeee;
 }
 
 .tab-item {
@@ -397,11 +483,11 @@ onMounted(() => {
   background-color: #fafafa;
   border-bottom: 1px solid #e8ecf4;
   position: relative;
-  border: 1px solid #EEEEEE;
+  border: 1px solid #eeeeee;
   margin-bottom: -1px;
 }
 
-.tab-item+.tab-item {
+.tab-item + .tab-item {
   margin-left: 6px;
 }
 
@@ -434,8 +520,8 @@ onMounted(() => {
 .applicant-item {
   padding: 12px;
   cursor: pointer;
-  background-color: #F7FBFF;
-  border: 1px solid #E2F1FF;
+  background-color: #f7fbff;
+  border: 1px solid #e2f1ff;
   border-radius: 4px;
   position: relative;
 }
@@ -448,7 +534,7 @@ onMounted(() => {
   transform: rotate(45deg) translateY(-50%);
   width: 10px;
   height: 10px;
-  border: 1px solid #3BA0FE;
+  border: 1px solid #3ba0fe;
   border-left: none;
   border-bottom: none;
   display: none;
@@ -458,12 +544,12 @@ onMounted(() => {
   display: block;
 }
 
-.applicant-item+.applicant-item {
+.applicant-item + .applicant-item {
   margin-top: 10px;
 }
 
 .applicant-item.active {
-  border-color: #3BA0FE;
+  border-color: #3ba0fe;
 }
 
 .applicant-header {
@@ -536,7 +622,7 @@ onMounted(() => {
 
 .salary {
   padding-left: 5px;
-  border-left: 1px solid #DADADA;
+  border-left: 1px solid #dadada;
 }
 
 .work-experience {
@@ -583,7 +669,7 @@ onMounted(() => {
   height: 100%;
   box-sizing: border-box;
   background-color: #ffffff;
-  border: 1px solid #EEEEEE;
+  border: 1px solid #eeeeee;
   border-radius: 4px;
   position: relative;
   padding-bottom: 0px;
@@ -787,7 +873,7 @@ onMounted(() => {
 .btn {
   background-color: #ffffff;
   color: #555555;
-  border: 1px solid #EEEEEE;
+  border: 1px solid #eeeeee;
   padding: 8px 24px;
   border-radius: 4px;
   font-size: 14px;
@@ -823,8 +909,12 @@ onMounted(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {

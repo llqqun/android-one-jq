@@ -78,8 +78,7 @@ import QrcodeVue from 'qrcode.vue'
 import { loginApi } from '../services/api'
 import { useResumeStore } from '../store/resume'
 import { showToast } from 'vant';
-import { encrypt } from '@/utils/encryption-utils.js'
-import '@/utils/md5-min.js'
+import { encryptPassword } from '@/utils/index.js'
 const resumeStore = useResumeStore()
 
 const router = useRouter()
@@ -101,8 +100,8 @@ watch(loginType, (newType) => {
 
 // 账号密码登录表单
 const loginForm = ref({
-  username: '',
-  password: ''
+  username: '13017111700',
+  password: 'Dw###772620331'
 })
 const loginLoading = ref(false)
 const loginError = ref('')
@@ -144,7 +143,7 @@ const getHRQRCode = async () => {
   qrCodeLoading.value = true
   qrCodeError.value = ''
   try {
-    const response = await loginApi.getHRQRCode({ token: resumeStore.schoolId })
+    const response = await loginApi.getHRQRCode({ token: resumeStore.schoolToken })
     console.log('获取HR二维码响应:', response)
     if (response.code === 1) {
       qrCodeUrl.value = response.data.url
@@ -211,6 +210,9 @@ const startLoginPolling = () => {
 
 // 处理密码登录
 const handlePasswordLogin = async () => {
+  if (loginLoading.value) {
+    return
+  }
   // 表单验证
   let isValid = true
   
@@ -231,14 +233,22 @@ const handlePasswordLogin = async () => {
   loginLoading.value = true
   
   try {
+    const encryptedPassword = encryptPassword(loginForm.value.password).encryptedPassword
+    if (!encryptedPassword) {
+      showToast('登录失败::密码错误')
+      return
+    }
     const bodyData = {
-      user_name: encrypt(loginForm.value.username, resumeStore.encryptionKey),
-      password: encrypt(hex_md5(loginForm.value.password), resumeStore.encryptionKey)
+      user_name: loginForm.value.username,
+      password: encryptedPassword
     }
     console.log('登录请求数据:', bodyData)
     const response = await loginApi.validateHRLogin(bodyData)
     console.log('密码登录响应:', response)
     if (response.code === 1) {
+      // 存储企业信息
+      resumeStore.setCompanyLoginInfo(response.data)
+      localStorage.setItem('companyLoginInfo', JSON.stringify(response.data))
       handleLoginSuccess()
     } else {
       showToast(response.msg || '登录失败')
@@ -267,12 +277,12 @@ const handleLoginSuccess = async () => {
   
   // 获取企业详情及职位信息
   try {
-    const response = await loginApi.getCompanyDetail()
-    console.log('获取企业详情响应:', response)
-    if (response.code === 1) {
-      // 保存企业信息到本地存储
-      localStorage.setItem('companyInfo', JSON.stringify(response.data))
-    }
+    // const response = await loginApi.getCompanyDetail()
+    // console.log('获取企业详情响应:', response)
+    // if (response.code === 1) {
+    //   // 保存企业信息到本地存储
+    //   localStorage.setItem('companyInfo', JSON.stringify(response.data))
+    // }
   } catch (error) {
     console.error('获取企业详情失败:', error)
   }
@@ -287,7 +297,7 @@ const handleLoginSuccess = async () => {
 onMounted(() => {
   setTimeout(() => {
     showLoginDialog.value = true
-  }, 1000)
+  }, 1500)
   // 调用 Android 原生方法获取屏幕类型
   // if (window.android && window.android.getScreenType) {
   //   screenType.value = window.android.getScreenType()

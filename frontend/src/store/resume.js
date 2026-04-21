@@ -3,8 +3,9 @@ import { resumeApi } from '../services/api'
 
 export const useResumeStore = defineStore('resume', {
   state: () => ({
-    encryptionKey: 'TAnD1HXWVxgBdSLo',
-    schoolId: import.meta.env.PROD ? 'yxqqnn0300000001' : 'yxqqnn2200000006',
+    schoolToken: import.meta.env.PROD ? 'yxqqnn0300000001' : 'yxqqnn2200000006',
+    schoolId: import.meta.env.PROD ? '79' : '2413',
+    companyLoginInfo: null,
     positionCategories: [
       { id: 1, name: '数据工程师', count: 32 },
       { id: 2, name: '前端工程师', count: 28 },
@@ -85,19 +86,7 @@ export const useResumeStore = defineStore('resume', {
         applyTime: '2025-03-28 10:15'
       }
     ],
-    jobs: [
-      {
-        title: '中高级产品经理,很长很长很长很长很长的标题很长很长很长很长很长的标题很长很长很长很长很长的标题',
-        count: 3,
-        degree: '本科及以上',
-        city: '衡阳市',
-        salary: '10K-15K/月',
-        isChecked: false,
-      },
-      { title: '英语老师', count: 3, degree: '本科及以上', city: '衡阳市', salary: '10K-15K/月', isChecked: false },
-      { title: '中高级产品经理', count: 3, degree: '本科及以上', city: '衡阳市', salary: '10K-15K/月', isChecked: false },
-      { title: '英语老师', count: 3, degree: '本科及以上', city: '衡阳市', salary: '10K-15K/月', isChecked: false }
-    ],
+    jobs: [],
     cvList: [
       { id: 1, name: '产品经理', isDefault: true },
       { id: 2, name: '测试工程师', isDefault: false },
@@ -113,7 +102,6 @@ export const useResumeStore = defineStore('resume', {
       { label: '初试用', value: '4' }
     ],
     loading: false,
-    error: null
   }),
   getters: {
     getSelectedResume: (state) => state.selectedResume,
@@ -127,6 +115,9 @@ export const useResumeStore = defineStore('resume', {
     getError: (state) => state.error
   },
   actions: {
+    setCompanyLoginInfo(companyInfo) {
+      this.companyLoginInfo = companyInfo
+    },
     selectResume(resume) {
       this.selectedResume = resume
     },
@@ -138,10 +129,8 @@ export const useResumeStore = defineStore('resume', {
         this.loading = true
         await resumeApi.updateResumeStatus(resume.id, status)
         resume.status = status
-        this.error = null
       } catch (error) {
         console.error('更新简历状态失败:', error)
-        this.error = '更新简历状态失败'
       } finally {
         this.loading = false
       }
@@ -151,10 +140,8 @@ export const useResumeStore = defineStore('resume', {
         this.loading = true
         const data = await resumeApi.getPositionCategories()
         this.positionCategories = data
-        this.error = null
       } catch (error) {
         console.error('获取职位分类失败:', error)
-        this.error = '获取职位分类失败'
       } finally {
         this.loading = false
       }
@@ -164,10 +151,8 @@ export const useResumeStore = defineStore('resume', {
         this.loading = true
         const data = await resumeApi.getStudentResumes(params)
         this.studentResumes = data
-        this.error = null
       } catch (error) {
         console.error('获取学生简历失败:', error)
-        this.error = '获取学生简历失败'
       } finally {
         this.loading = false
       }
@@ -177,10 +162,20 @@ export const useResumeStore = defineStore('resume', {
         this.loading = true
         const data = await resumeApi.getJobs()
         this.jobs = data
-        this.error = null
       } catch (error) {
         console.error('获取职位列表失败:', error)
-        this.error = '获取职位列表失败'
+      } finally {
+        this.loading = false
+      }
+    },
+    async logout() {
+      try {
+        this.companyInfo = null
+        this.positionCategories = []
+        this.jobs = []
+        this.studentResumes = []
+      } catch (error) {
+        console.error('退出登录失败:', error)
       } finally {
         this.loading = false
       }
