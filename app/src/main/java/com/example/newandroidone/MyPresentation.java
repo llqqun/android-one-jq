@@ -20,6 +20,7 @@ public class MyPresentation extends Presentation {
     private static final String TAG = "---MyPresentation---";
     private WebView webView;
     // private TextView statusText;
+    private String deviceId = "";
 
     public MyPresentation(Context outerContext, Display display) {
         super(outerContext, display);
@@ -214,12 +215,44 @@ public class MyPresentation extends Presentation {
         super.onStop();
         Log.d(TAG, "MyPresentation onStop");
     }
+    
+    // 设置设备ID（SAMID）
+    public void setDeviceId(String id) {
+        deviceId = id;
+        // 传递设备ID给webView
+        if (webView != null) {
+            webView.evaluateJavascript("javascript:setDeviceId('" + id + "')", null);
+        }
+    }
+    
+    // 显示身份证信息
+    public void showIdCardInfo(String jsonData) {
+        // 传递读卡信息给副屏
+        if (webView != null) {
+            webView.evaluateJavascript("javascript:showStatus('读卡成功', 'success')", null);
+            webView.evaluateJavascript("javascript:showIdCardInfo(" + jsonData + ")", null);
+        }
+    }
+    
+    // 同步localStorage数据
+    public void syncLocalStorage(String key, String value) {
+        // 同步到副屏
+        if (webView != null) {
+            webView.evaluateJavascript("javascript:setLocalStorage('" + key + "', '" + value + "')", null);
+        }
+    }
 
     public class JavaScriptInterface {
         @JavascriptInterface
         public String getScreenType() {
             // 副屏返回 "secondary"
             return "secondary";
+        }
+        
+        @JavascriptInterface
+        public String getDeviceId() {
+            // 返回设备ID（SAMID）
+            return deviceId;
         }
     }
 }

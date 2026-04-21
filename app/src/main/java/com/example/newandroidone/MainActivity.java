@@ -26,6 +26,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
     private CardReaderManager cardReaderManager;
     private DisplayManager mDisplayManager;
     private MyPresentation myPresentation;
+    private String samId = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +46,8 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
 
         cardReaderManager = new CardReaderManager(this);
         cardReaderManager.setCallback(this);
+        // 自动连接读卡器
+        cardReaderManager.openDevice();
 
         webView = findViewById(R.id.webView);
         WebSettings webSettings = webView.getSettings();
@@ -211,6 +214,17 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
     @Override
     public void onDeviceConnected(boolean success, String message) {
         String statusType = success ? "success" : "error";
+        if (success && message.contains("SAMID: ")) {
+            samId = message.substring(7); // 提取SAMID
+            // 传递SAMID给webView
+            webView.evaluateJavascript("javascript:setDeviceId('" + samId + "')", null);
+            // 如果副屏已创建，也传递给副屏
+            if (myPresentation != null) {
+                myPresentation.setDeviceId(samId);
+            }
+            // 自动开启自动读卡功能
+            cardReaderManager.startAutoRead();
+        }
         webView.evaluateJavascript("javascript:showStatus('" + (success ? "打开设备成功，" + message : "打开设备失败") + "', '" + statusType + "')", null);
     }
 
@@ -232,8 +246,13 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
                 "\"validity\":\"" + cardInfo.getValidity() + "\"," +
                 "\"photo\":\"" + cardInfo.getPhotoBase64() + "\"" +
                 "}";
+        // 传递读卡信息给主屏幕
         webView.evaluateJavascript("javascript:showStatus('读卡成功', 'success')", null);
         webView.evaluateJavascript("javascript:showIdCardInfo(" + jsonData + ")", null);
+        // 如果副屏已创建，也传递给副屏
+        if (myPresentation != null) {
+            myPresentation.showIdCardInfo(jsonData);
+        }
     }
 
     @Override
@@ -247,6 +266,16 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
             webView.evaluateJavascript("javascript:showStatus('固件版本号：" + version + "', 'success')", null);
         } else {
             webView.evaluateJavascript("javascript:showStatus('读取固件版本失败！', 'error')", null);
+        }
+    }
+    
+    // 同步localStorage数据到两个WebView
+    private void syncLocalStorageData(String key, String value) {
+        // 同步到主屏幕
+        webView.evaluateJavascript("javascript:setLocalStorage('" + key + "', '" + value + "')", null);
+        // 同步到副屏
+        if (myPresentation != null) {
+            myPresentation.syncLocalStorage(key, value);
         }
     }
 
@@ -286,6 +315,18 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         public String getScreenType() {
             // 主屏返回 "main", 副屏在 MyPresentation 中返回 "secondary"
             return "main";
+        }
+        
+        @JavascriptInterface
+        public String getDeviceId() {
+            // 返回设备ID（SAMID）
+            return samId;
+        }
+        
+        @JavascriptInterface
+        public void syncLocalStorage(String key, String value) {
+            // 同步localStorage数据到两个WebView
+            syncLocalStorageData(key, value);
         }
     }
 }

@@ -54,14 +54,6 @@
                 <div class="loading-spinner"></div>
                 <div class="loading-text">加载中...</div>
               </div>
-              <div v-else-if="error" class="error-container">
-                <div class="error-text">{{ error }}</div>
-                <div
-                  class="retry-btn"
-                  @click="resumeStore.fetchStudentResumes({ status: activeTab })">
-                  重试
-                </div>
-              </div>
               <div v-else>
                 <div
                   class="applicant-item"
@@ -70,13 +62,15 @@
                   :class="{ active: selectedResume && selectedResume.id === resume.id }"
                   @click="selectResume(resume)">
                   <div class="applicant-header">
-                    <div class="avatar">{{ resume.name.charAt(0) }}</div>
+                    <div class="avatar">
+                      <img :src="resume.head_url" alt="avatar" class="avatar-image" />
+                    </div>
                     <div class="applicant-basic">
                       <div class="name-info">
-                        <span class="name">{{ resume.name }}</span>
+                        <span class="name">{{ resume.user_name }}</span>
                         <div class="gender">
                           <img
-                            v-if="resume.gender === 'male'"
+                            v-if="resume.sex === '男'"
                             src="../assets/svgs/man.svg"
                             alt="male"
                             class="svg-icon" />
@@ -87,26 +81,27 @@
                             class="svg-icon" />
                         </div>
                         <span class="age">{{ resume.age }}岁</span>
-                        <span class="apply-time">{{ resume.applyTime }}</span>
+                        <span class="apply-time">{{ resume.apply_time }}</span>
                       </div>
                       <div class="intention-salary">
                         <span class="intention-title">求职意向：</span>
-                        <span class="intention">{{ resume.intention }}</span>
-                        <span class="salary">{{ resume.salary }}</span>
+                        <span class="intention">{{ resume.expect_job }}</span>
+                        <span class="salary">{{ resume.expect_city }}</span>
+                        <span class="salary">{{ resume.expected_salary_min }} - {{ resume.expected_salary_max }}</span>
                       </div>
                     </div>
                   </div>
                   <div class="work-experience">
                     <div
                       class="exp-item"
-                      v-for="(exp, index) in resume.workExperience.slice(0, 2)"
+                      v-for="(exp, index) in resume.last_work"
                       :key="index">
                       <div class="exp-bullet">
                         <img src="../assets/svgs/job.svg" alt="job" class="svg-icon" />
                       </div>
                       <div class="exp-content">
-                        <div class="exp-period">{{ exp.period }}</div>
-                        <div class="exp-info">{{ exp.company }}</div>
+                        <div class="exp-period">{{ exp.begin_date }}</div>
+                        <div class="exp-info">{{ exp.company_name }}</div>
                         <div class="exp-position">{{ exp.position }}</div>
                       </div>
                     </div>
@@ -219,38 +214,80 @@ import { computed, onMounted, ref } from 'vue';
 import { useResumeStore } from '../store/resume';
 import { useRouter } from 'vue-router';
 import { loginApi } from '@/services/api.js';
+import { showToast } from 'vant';
 
 const resumeStore = useResumeStore();
 const router = useRouter();
 
 const positionCategories = ref([]);
 const currentCategory = ref(null);
-
-const switchCategory = (category) => {
-  currentCategory.value = category;
-}
-const studentResumes = resumeStore.studentResumes;
-const tabs = resumeStore.tabs;
-const activeTab = resumeStore.activeTab;
-const selectedResume = computed(() => resumeStore.selectedResume);
-const loading = computed(() => resumeStore.loading);
-const error = computed(() => resumeStore.error);
+const studentResumes = ref([]);
+const tabs = [
+  { label: '待处理', value: 'pending' },
+  { label: '有意向', value: 'interested' },
+  { label: '不合适', value: 'unsuitable' },
+  { label: '拟录用', value: 'proposed' }
+];
+const activeTab = ref('pending');
+const selectedResume = ref(null);
+const loading = ref(false);
+const error = ref('');
 const companyInfo = ref(null);
 
-const selectResume = (resume) => {
-  resumeStore.selectResume(resume);
+const switchCategory = async (category) => {
+  currentCategory.value = category;
+  await fetchJobApplyList(category);
 };
 
-const switchTab = (value) => {
-  resumeStore.switchTab(value);
-  // 切换标签时重新获取对应状态的简历
-  resumeStore.fetchStudentResumes({ status: value });
+const fetchJobApplyList = async (category) => {
+  loading.value = true;
+  try {
+    let companyLoginInfo = resumeStore.companyLoginInfo;
+    const companyLoginInfoStr = localStorage.getItem('companyLoginInfo');
+    if (!companyLoginInfo && companyLoginInfoStr) {
+      companyLoginInfo = JSON.parse(companyLoginInfoStr);
+    }
+    
+    if (companyLoginInfo) {
+      const response = await loginApi.getJobApplyList({
+        device_id: resumeStore.deviceId || '0513201062000003180902854042382',
+        company_id: companyLoginInfo.company_id,
+        school_id: resumeStore.schoolId,
+        publish_id: category.publish_id,
+        type: activeTab.value
+      });
+      if (response.code !== 1) {
+        showToast(response.msg || '获取简历数据失败');
+        return;
+      }
+      if (response.code === 1 && Array.isArray(response.data)) {
+        // 处理包含code字段的响应
+        studentResumes.value = response.data;
+      }
+    }
+  } catch (err) {
+    console.error('获取申请列表失败:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const switchTab = async (value) => {
+  activeTab.value = value;
+  if (currentCategory.value) {
+    await fetchJobApplyList(currentCategory.value);
+  }
+};
+
+const selectResume = (resume) => {
+  selectedResume.value = resume;
 };
 
 const handleStatusChange = (resume, status) => {
-  resumeStore.updateResumeStatus(resume, status);
+  // 这里可以添加状态更新逻辑
+  console.log('更新简历状态:', resume, status);
 };
-
+// 页面初始化时获取数据
 const pageInit = async () => {
   let companyLoginInfo = resumeStore.companyLoginInfo;
   const companyLoginInfoStr = localStorage.getItem('companyLoginInfo');
@@ -267,6 +304,12 @@ const pageInit = async () => {
     if (res.code === 1) {
       companyInfo.value = res.data.company;
       positionCategories.value = res.data.jobs.items;
+      
+      // 默认选择第一个职位并加载数据
+      if (positionCategories.value.length > 0) {
+        currentCategory.value = positionCategories.value[0];
+        await fetchJobApplyList(positionCategories.value[0]);
+      }
     }
     console.log(res);
   }
@@ -278,8 +321,8 @@ const logout = () => {
 };
 
 // 页面加载时获取数据
-onMounted(() => {
-  pageInit();
+onMounted(async () => {
+  await pageInit();
 });
 </script>
 
@@ -484,7 +527,7 @@ onMounted(() => {
   border-bottom: 1px solid #e8ecf4;
   position: relative;
   border: 1px solid #eeeeee;
-  margin-bottom: -1px;
+  margin-bottom: -2px;
 }
 
 .tab-item + .tab-item {
@@ -571,6 +614,10 @@ onMounted(() => {
   font-size: 24px;
   font-weight: 600;
   margin-right: 12px;
+  .avatar-image {
+    width: 100%;
+    height: 100%;
+  }
 }
 
 .applicant-basic {

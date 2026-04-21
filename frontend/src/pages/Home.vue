@@ -1,54 +1,51 @@
 <template>
   <div class="home-container">
     <div class="img-box" @click="handleRoute">
-      <img src="../assets/images/home_2.png" class="home-image-logo" alt="logo">
-      <img src="../assets/images/home_3.png" class="home-image-text" alt="text">
+      <img src="../assets/images/home_2.png" class="home-image-logo" alt="logo" />
+      <img src="../assets/images/home_3.png" class="home-image-text" alt="text" />
     </div>
 
     <!-- 企业登录弹窗 -->
-    <van-popup v-model:show="showLoginDialog" round :close-on-click-overlay="false" :closeable="false">
+    <van-popup
+      v-model:show="showLoginDialog"
+      round
+      :close-on-click-overlay="false"
+      :closeable="false">
       <div class="login-dialog">
         <div class="dialog-title">企业登录</div>
-        
+
         <!-- 登录方式切换 -->
         <div class="login-tabs">
-          <div 
-            class="tab-item" 
+          <div
+            class="tab-item"
             :class="{ active: loginType === 'password' }"
-            @click="loginType = 'password'"
-          >
+            @click="loginType = 'password'">
             账号密码登录
           </div>
-          <div 
-            class="tab-item" 
+          <div
+            class="tab-item"
             :class="{ active: loginType === 'qrcode' }"
-            @click="loginType = 'qrcode'"
-          >
+            @click="loginType = 'qrcode'">
             扫码登录
           </div>
         </div>
 
         <!-- 账号密码登录 -->
         <div v-if="loginType === 'password'" class="login-form">
-          <van-field
-            v-model="loginForm.username"
-            label="用户名"
-            placeholder="请输入用户名"
-          />
+          <van-field v-model="loginForm.username" label="用户名" placeholder="请输入用户名" />
           <van-field
             v-model="loginForm.password"
             label="密码"
             type="password"
-            placeholder="请输入密码"
-          />
-          <van-button 
-            type="primary" 
-            class="login-btn" 
+            placeholder="请输入密码" />
+          <van-button
+            type="primary"
+            class="login-btn"
             :loading="loginLoading"
-            @click="handlePasswordLogin"
-          >
+            @click="handlePasswordLogin">
             登录
           </van-button>
+          <div class="device-id">默认设备编号：{{ deviceId }}</div>
         </div>
 
         <!-- 扫码登录 -->
@@ -63,218 +60,233 @@
           </div>
           <div class="qrcode-tip">请企业HR扫码登录</div>
         </div>
-
-        <!-- 登录错误提示 -->
-        <div v-if="loginError" class="login-error">{{ loginError }}</div>
       </div>
     </van-popup>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import QrcodeVue from 'qrcode.vue'
-import { loginApi } from '../services/api'
-import { useResumeStore } from '../store/resume'
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import QrcodeVue from 'qrcode.vue';
+import { loginApi } from '../services/api';
+import { useResumeStore } from '../store/resume';
 import { showToast } from 'vant';
-import { encryptPassword } from '@/utils/index.js'
-const resumeStore = useResumeStore()
+import { encryptPassword } from '@/utils/index.js';
+const resumeStore = useResumeStore();
 
-const router = useRouter()
+const router = useRouter();
 
 // 屏幕类型
-const screenType = ref('')
+const screenType = ref('');
+const deviceId = ref('0513201062000003180902854042382');
+
+// 接收设备ID（SAMID）
+window.setDeviceId = function (id) {
+  deviceId.value = id;
+  console.log('获取到设备ID:', id);
+};
+
+// 初始化时获取设备ID
+onMounted(() => {
+  // 调用 Android 原生方法获取设备ID
+  if (window.android && window.android.getDeviceId) {
+    const id = window.android.getDeviceId();
+    if (id) {
+      deviceId.value = id;
+      console.log('初始化获取到设备ID:', id);
+    }
+  }
+});
 
 // 登录弹窗状态
-const showLoginDialog = ref(false)
-const loginType = ref('password') // 'password' 或 'qrcode'
+const showLoginDialog = ref(false);
+const loginType = ref('password'); // 'password' 或 'qrcode'
 
 // 监听登录类型变化
 watch(loginType, (newType) => {
   if (newType === 'qrcode') {
     // 切换到扫码登录时获取二维码
-    getHRQRCode()
+    getHRQRCode();
   }
-})
+});
 
 // 账号密码登录表单
 const loginForm = ref({
   username: '13017111700',
-  password: 'Dw###772620331'
-})
-const loginLoading = ref(false)
-const loginError = ref('')
+  password: 'Dw###772620331',
+});
+const loginLoading = ref(false);
 
 // 扫码登录状态
-const qrCodeUrl = ref('')
-const qrCodeExpireTime = ref(0)
-const qrCodeTimer = ref(null)
-const loginPollingTimer = ref(null)
-const qrCodeLoading = ref(false)
-const qrCodeError = ref('')
-const qrUuid = ref('')
+const qrCodeUrl = ref('');
+const qrCodeExpireTime = ref(0);
+const qrCodeTimer = ref(null);
+const loginPollingTimer = ref(null);
+const qrCodeLoading = ref(false);
+const qrCodeError = ref('');
+const qrUuid = ref('');
 
 const handleRoute = () => {
   // 调用 Android 原生方法获取屏幕类型
   if (window.android && window.android.getScreenType) {
-    screenType.value = window.android.getScreenType()
-    console.log('Screen type:', screenType.value)
-    
+    screenType.value = window.android.getScreenType();
+    console.log('Screen type:', screenType.value);
+
     // 根据屏幕类型跳转到不同页面
     if (screenType.value === 'main') {
       // 主屏跳转到 resumeSubmission
-      router.push('/resumeSubmission')
+      router.push('/resumeSubmission');
     } else if (screenType.value === 'secondary') {
       // 副屏跳转到 cvList
-      router.push('/cvList')
+      router.push('/cvList');
     } else {
       // 默认跳转到 cvList
-      router.push('/cvList')
+      router.push('/cvList');
     }
   } else {
     // 如果没有 Android 原生方法，默认跳转到 cvList
-    router.push('/resumeSubmission')
+    router.push('/resumeSubmission');
   }
-}
+};
 
 // 获取HR登录二维码
 const getHRQRCode = async () => {
-  qrCodeLoading.value = true
-  qrCodeError.value = ''
+  qrCodeLoading.value = true;
+  qrCodeError.value = '';
   try {
-    const response = await loginApi.getHRQRCode({ token: resumeStore.schoolToken })
-    console.log('获取HR二维码响应:', response)
+    const response = await loginApi.getHRQRCode({ token: resumeStore.schoolToken });
+    console.log('获取HR二维码响应:', response);
     if (response.code === 1) {
-      qrCodeUrl.value = response.data.url
+      qrCodeUrl.value = response.data.url;
       // 计算二维码过期时间，减少10秒
-      qrCodeExpireTime.value = (response.data.expire_time - 10000) / 1000
+      qrCodeExpireTime.value = (response.data.expire_time - 10000) / 1000;
       // 启动二维码过期定时器
-      startQRCodeTimer()
-      qrUuid.value = response.data.uuid
+      startQRCodeTimer();
+      qrUuid.value = response.data.uuid;
       // 启动登录状态轮询
-      startLoginPolling()
+      startLoginPolling();
     } else {
-      qrCodeError.value = response.msg || '获取二维码失败'
+      qrCodeError.value = response.msg || '获取二维码失败';
     }
   } catch (error) {
-    console.error('获取二维码失败:', error)
-    qrCodeError.value = '获取二维码失败'
+    console.error('获取二维码失败:', error);
+    qrCodeError.value = '获取二维码失败';
   } finally {
-    qrCodeLoading.value = false
+    qrCodeLoading.value = false;
   }
-}
+};
 
 // 启动二维码过期定时器
 const startQRCodeTimer = () => {
   // 清除之前的定时器
   if (qrCodeTimer.value) {
-    clearInterval(qrCodeTimer.value)
+    clearInterval(qrCodeTimer.value);
   }
-  
+
   // 设置定时器，当二维码过期时重新获取
   qrCodeTimer.value = setInterval(() => {
-    qrCodeExpireTime.value--
+    qrCodeExpireTime.value--;
     if (qrCodeExpireTime.value <= 0) {
-      clearInterval(qrCodeTimer.value)
-      qrCodeTimer.value = null
+      clearInterval(qrCodeTimer.value);
+      qrCodeTimer.value = null;
       // 重新获取二维码
-      getHRQRCode()
+      getHRQRCode();
     }
-  }, 1000)
-}
+  }, 1000);
+};
 
 // 启动登录状态轮询
 const startLoginPolling = () => {
   // 清除之前的轮询
   if (loginPollingTimer.value) {
-    clearInterval(loginPollingTimer.value)
+    clearInterval(loginPollingTimer.value);
   }
-  
+
   // 设置轮询，每2秒检查一次登录状态
   loginPollingTimer.value = setInterval(async () => {
     try {
-      const response = await loginApi.checkHRLoginStatus({ uuid: qrUuid.value })
+      const response = await loginApi.checkHRLoginStatus({ uuid: qrUuid.value });
       if (response.code === 1) {
         // 检查登录状态
         if (response.data && response.data.logged_in) {
           // 登录成功
-          handleLoginSuccess()
+          handleLoginSuccess();
         }
       }
     } catch (error) {
-      console.error('检查登录状态失败:', error)
+      console.error('检查登录状态失败:', error);
     }
-  }, 2000)
-}
+  }, 2000);
+};
 
 // 处理密码登录
 const handlePasswordLogin = async () => {
   if (loginLoading.value) {
-    return
+    return;
   }
   // 表单验证
-  let isValid = true
-  
+  let isValid = true;
+
   if (!loginForm.value.username) {
-    showToast('请输入用户名')
-    isValid = false
+    showToast('请输入用户名');
+    isValid = false;
   }
-  
+
   if (!loginForm.value.password) {
-    showToast('请输入密码')
-    isValid = false
+    showToast('请输入密码');
+    isValid = false;
   }
-  
+
   if (!isValid) {
-    return
+    return;
   }
-  
-  loginLoading.value = true
-  
+
+  loginLoading.value = true;
+
   try {
-    const encryptedPassword = encryptPassword(loginForm.value.password).encryptedPassword
+    const encryptedPassword = encryptPassword(loginForm.value.password).encryptedPassword;
     if (!encryptedPassword) {
-      showToast('登录失败::密码错误')
-      return
+      showToast('登录失败::密码错误');
+      return;
     }
     const bodyData = {
       user_name: loginForm.value.username,
-      password: encryptedPassword
-    }
-    console.log('登录请求数据:', bodyData)
-    const response = await loginApi.validateHRLogin(bodyData)
-    console.log('密码登录响应:', response)
+      password: encryptedPassword,
+    };
+    console.log('登录请求数据:', bodyData);
+    const response = await loginApi.validateHRLogin(bodyData);
+    console.log('密码登录响应:', response);
     if (response.code === 1) {
       // 存储企业信息
-      resumeStore.setCompanyLoginInfo(response.data)
-      localStorage.setItem('companyLoginInfo', JSON.stringify(response.data))
-      handleLoginSuccess()
+      resumeStore.setCompanyLoginInfo(response.data);
+      localStorage.setItem('companyLoginInfo', JSON.stringify(response.data));
+      handleLoginSuccess();
     } else {
-      showToast(response.msg || '登录失败')
+      showToast(response.msg || '登录失败');
     }
   } catch (error) {
-    console.error('登录失败:', error)
-    showToast('登录失败')
+    console.error('登录失败:', error);
+    showToast('登录失败');
   } finally {
-    loginLoading.value = false
+    loginLoading.value = false;
   }
-}
+};
 
 // 处理登录成功
 const handleLoginSuccess = async () => {
   // 停止轮询
   if (loginPollingTimer.value) {
-    clearInterval(loginPollingTimer.value)
-    loginPollingTimer.value = null
+    clearInterval(loginPollingTimer.value);
+    loginPollingTimer.value = null;
   }
-  
+
   // 停止二维码过期定时器
   if (qrCodeTimer.value) {
-    clearInterval(qrCodeTimer.value)
-    qrCodeTimer.value = null
+    clearInterval(qrCodeTimer.value);
+    qrCodeTimer.value = null;
   }
-  
+
   // 获取企业详情及职位信息
   try {
     // const response = await loginApi.getCompanyDetail()
@@ -284,47 +296,58 @@ const handleLoginSuccess = async () => {
     //   localStorage.setItem('companyInfo', JSON.stringify(response.data))
     // }
   } catch (error) {
-    console.error('获取企业详情失败:', error)
+    console.error('获取企业详情失败:', error);
   }
-  
+
   // 关闭登录弹窗
-  showLoginDialog.value = false
-  
+  showLoginDialog.value = false;
+
   // 跳转到cvList页面
-  router.push('/cvList')
-}
+  // router.push('/cvList')
+  router.push('/resumeSubmission');
+};
 
 onMounted(() => {
-  setTimeout(() => {
-    showLoginDialog.value = true
-  }, 1500)
+  // setTimeout(() => {
+  //   showLoginDialog.value = true
+  // }, 1500)
   // 调用 Android 原生方法获取屏幕类型
-  // if (window.android && window.android.getScreenType) {
-  //   screenType.value = window.android.getScreenType()
-  //   console.log('Screen type:', screenType.value)
-    
-  //   if (screenType.value === 'secondary') {
-  //     // 副屏显示登录弹窗
-  //     showLoginDialog.value = true
-  //   } else {
-  //     // 其他屏幕直接跳转
-  //     handleRoute()
-  //   }
-  // }
-})
+  if (window.android && window.android.getScreenType) {
+    screenType.value = window.android.getScreenType();
+    console.log('Screen type:', screenType.value);
+
+    if (screenType.value === 'secondary') {
+      // 副屏显示登录弹窗
+      setTimeout(() => {
+        showLoginDialog.value = true
+      }, 3000)
+    } else {
+      // 其他屏幕直接跳转
+      setTimeout(() => {
+       handleRoute();
+      }, 3000);
+    }
+  }
+});
 
 onUnmounted(() => {
   // 清除定时器
   if (qrCodeTimer.value) {
-    clearInterval(qrCodeTimer.value)
+    clearInterval(qrCodeTimer.value);
   }
   if (loginPollingTimer.value) {
-    clearInterval(loginPollingTimer.value)
+    clearInterval(loginPollingTimer.value);
   }
-})
+});
 </script>
 
 <style lang="scss" scoped>
+.device-id {
+  font-size: 14px;
+  color: #333;
+  text-align: center;
+  margin-top: 20px;
+}
 @import '../assets/mixins.scss';
 .van-popup {
   opacity: 0.85;
@@ -334,7 +357,7 @@ onUnmounted(() => {
   height: 100%;
   min-height: 100vh;
   width: 100%;
-  background-color: #F8F8F8;
+  background-color: #f8f8f8;
   @include flex-fun(column, flex-start, flex-start);
   background-image: url('../assets/images/home_1.png');
   background-size: 100% 100%;
@@ -455,8 +478,12 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-text {

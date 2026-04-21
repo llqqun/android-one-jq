@@ -107,7 +107,44 @@ export const loginApi = {
    * @returns {*} data.credit 职位分类
    * @returns {*} data.jobs 职位列表
    */
-  getCompanyDetail: (data) => api.get('/machine/company/detail', { params: data })
+  getCompanyDetail: (data) => api.get('/machine/company/detail', { params: data }),
+  
+  /**
+   * 获取职位申请列表
+   * @param {*} data 请求参数
+   * @param {*} data.device_id 设备ID
+   * @param {*} data.company_id 企业ID
+   * @param {*} data.school_id 学校ID
+   * @param {*} data.publish_id 职位发布ID
+   * @param {*} data.type 申请状态：pending(待处理), interested(有意向), unsuitable(不合适), proposed(拟录用)
+   * 
+   * @returns {*} 申请列表数组
+   */
+  getJobApplyList: (data) => api.get('/machine/company/job_apply_list', { params: data }),
+  
+  /**
+   * 获取学生简历列表
+   * @param {*} data 请求参数
+   * @param {*} data.school_id 学校ID
+   * @param {*} data.student_id 学生ID
+   * @param {*} data.student_key 学生密钥
+   * 
+   * @returns {*} 简历列表
+   */
+  getStudentResumes: (data) => api.get('/machine/resume/list', { params: data }),
+  
+  /**
+   * 投递简历
+   * @param {*} data 请求参数
+   * @param {*} data.resume_id 简历ID
+   * @param {*} data.job_ids 职位ID列表
+   * @param {*} data.school_id 学校ID
+   * @param {*} data.student_id 学生ID
+   * @param {*} data.student_key 学生密钥
+   * 
+   * @returns {*} 投递结果
+   */
+  batchDelivery: (data) => api.post('/machine/resume/batch_delivery', data)
 }
 
 export default api
