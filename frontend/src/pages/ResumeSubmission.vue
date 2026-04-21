@@ -6,11 +6,11 @@
     </div>
 
     <div class="content">
-      <!-- 公司基本信息 -->
+      <!-- 左-公司基本信息 -->
       <div class="col left-col">
         <!-- 第一个卡片：公司信息介绍 -->
         <div class="card first-card">
-          <div class="info-header">
+          <div class="info-header" @click="handleHideConsole">
             <div class="info-logo">LOGO</div>
             <span class="info-title">长沙市云聘教育科技有限公司</span>
           </div>
@@ -43,26 +43,47 @@
 
         <!-- 第二个卡片：二维码 -->
         <div class="card second-card">
-          <div class="qr-placeholder">
-            <div class="qr-box">
-              <div class="corner-left-top"></div>
-              <div class="corner-right-top"></div>
-              <div class="corner-left-bottom"></div>
-              <div class="corner-right-bottom"></div>
-              <img src="../assets/images/test-code.png" class="img" alt="二维码" />
+          <!-- 登录成功状态 -->
+          <div v-if="isStudentLoggedIn" class="login-success">
+            <div class="success-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #4CAF50;">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
             </div>
+            <div class="success-text">学生已登录</div>
+            <div class="logout-btn" @click="handleStudentLogout">退出登录</div>
           </div>
-          <!-- 下方提示 -->
-          <div class="tip-section">
-            <div class="tip-img">
-              <img src="../assets/images/sm.png" class="img" alt="sm" />
+          
+          <!-- 二维码状态 -->
+          <div v-else>
+            <div class="qr-placeholder">
+              <div class="qr-box" @click="getQRCode">
+                <div class="corner-left-top"></div>
+                <div class="corner-right-top"></div>
+                <div class="corner-left-bottom"></div>
+                <div class="corner-right-bottom"></div>
+                <div v-if="qrCodeLoading" class="loading-container">
+                  <div class="loading-spinner"></div>
+                  <div class="loading-text">加载中...</div>
+                </div>
+                <QrcodeVue v-else-if="qrCodeUrl" :value="qrCodeUrl" :size="120" class="qrcode" />
+                <div v-else-if="qrCodeError" class="error-text">{{ qrCodeError }}</div>
+                <img v-else src="../assets/images/test-code.png" class="img" alt="二维码" />
+              </div>
             </div>
-            <span class="tip-text">学生，请扫码</span>
-            <span class="tip-text">HR屏可弹出电子简历</span>
+            <!-- 下方提示 -->
+            <div class="tip-section">
+              <div class="tip-img">
+                <img src="../assets/images/sm.png" class="img" alt="sm" />
+              </div>
+              <span class="tip-text">学生，请扫码</span>
+              <span class="tip-text">HR屏可弹出电子简历</span>
+            </div>
           </div>
         </div>
       </div>
-      <!-- 公司简介和招聘简章 -->
+      <!-- 中-公司简介和招聘简章 -->
       <div class="col middle-col">
         <div class="section-title">单位简介</div>
         <div class="section-box">
@@ -92,7 +113,7 @@
           </div>
         </div>
       </div>
-      <!-- 招聘岗位 -->
+      <!-- 右-招聘岗位 -->
       <div class="col right-col">
         <div class="section-title">招聘职位</div>
         <div class="section-list-box">
@@ -235,9 +256,20 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useResumeStore } from '../store/resume'
+import { cardReaderApi, loginApi } from '../services/api'
 import CircleProgress from '../components/CircleProgress.vue'
+import QrcodeVue from 'qrcode.vue'
+
+
+// 使用在线二维码生成服务
+const generateQRCodeOnline = (text) => {
+  // 使用qrcode-monkey的API生成二维码
+  // 注意：这依赖于外部服务，可能不稳定
+  const encodedText = encodeURIComponent(text)
+  return `https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodedText}`
+}
 
 const resumeStore = useResumeStore()
 const checkboxValue = ref([]);
@@ -245,6 +277,7 @@ const jobs = resumeStore.jobs
 const cvList = resumeStore.cvList
 const timer = ref(0)
 const timeNum = ref(null)
+const schoolId = ref(resumeStore.schoolId)
 const dialogPopupOptions = ref({
   title: '',
   type: 1,
@@ -256,6 +289,16 @@ const dialogPopupOptions = ref({
 const cardInfo = ref(null)
 const showCardInfoDialog = ref(false)
 const testStatus = ref('')
+
+// 二维码登录相关状态
+const qrCodeUrl = ref('')
+const qrCodeExpireTime = ref(0)
+const qrCodeTimer = ref(null)
+const loginPollingTimer = ref(null)
+const isStudentLoggedIn = ref(false)
+const qrCodeLoading = ref(false)
+const qrCodeError = ref('')
+const qrUuid = ref('')
 
 // 监听卡片信息事件
 const handleCardInfoReceived = (event) => {
@@ -272,19 +315,30 @@ const handleStatusMessage = (event) => {
 
 onMounted(() => {
   // 监听卡片信息事件
-  window.addEventListener('cardInfoReceived', handleCardInfoReceived)
-  window.addEventListener('statusMessage', handleStatusMessage)
+  // window.addEventListener('cardInfoReceived', handleCardInfoReceived)
+  // window.addEventListener('statusMessage', handleStatusMessage)
   
   // 检查是否已有存储的卡片信息
   if (window.cardInfo) {
     cardInfo.value = window.cardInfo
   }
+  
+  // 获取登录二维码
+  getQRCode()
 })
 
 onUnmounted(() => {
   // 移除事件监听
   window.removeEventListener('cardInfoReceived', handleCardInfoReceived)
   window.removeEventListener('statusMessage', handleStatusMessage)
+  
+  // 清除定时器
+  if (qrCodeTimer.value) {
+    clearInterval(qrCodeTimer.value)
+  }
+  if (loginPollingTimer.value) {
+    clearInterval(loginPollingTimer.value)
+  }
 })
 
 const openDialog = (type) => {
@@ -308,6 +362,10 @@ const openDialog = (type) => {
     dialogPopupOptions.value.type = 3;
     dialogPopupOptions.value.width = '400px';
     timer.value = 60;
+    if (timeNum.value) {
+      clearInterval(timeNum.value)
+      timeNum.value = null
+    }
     timeNum.value = setInterval(() => {
       timer.value--;
       if (timer.value <= 0) {
@@ -374,59 +432,179 @@ const handleConfirmCardInfo = () => {
   // 这里可以添加后续处理逻辑，比如自动填写表单等
 }
 
+// 获取登录二维码
+const getQRCode = async () => {
+  qrCodeLoading.value = true
+  qrCodeError.value = ''
+  try {
+    const response = await loginApi.getQRCode({ token: schoolId.value })
+    console.log('获取二维码响应:', response)
+    if (response.code === 1) {
+      // 直接使用API返回的URL作为二维码值
+      qrCodeUrl.value = response.data.url
+      // 计算二维码过期时间，减少10秒
+      qrCodeExpireTime.value = (response.data.expire_time - 10000) / 1000
+      // 启动二维码过期定时器
+      startQRCodeTimer()
+      qrUuid.value = response.data.uuid
+      // 启动登录状态轮询
+      startLoginPolling()
+    } else {
+      qrCodeError.value = response.msg || '获取二维码失败'
+    }
+  } catch (error) {
+    console.error('获取二维码失败:', error)
+    qrCodeError.value = '获取二维码失败'
+  } finally {
+    qrCodeLoading.value = false
+  }
+}
+
+// 启动二维码过期定时器
+const startQRCodeTimer = () => {
+  // 清除之前的定时器
+  if (qrCodeTimer.value) {
+    clearInterval(qrCodeTimer.value)
+  }
+  
+  // 设置定时器，当二维码过期时重新获取
+  qrCodeTimer.value = setInterval(() => {
+    qrCodeExpireTime.value--
+    if (qrCodeExpireTime.value <= 0) {
+      clearInterval(qrCodeTimer.value)
+      qrCodeTimer.value = null
+      // 重新获取二维码
+      getQRCode()
+    }
+  }, 1000)
+}
+
+// 启动登录状态轮询
+const startLoginPolling = () => {
+  // 清除之前的轮询
+  if (loginPollingTimer.value) {
+    clearInterval(loginPollingTimer.value)
+  }
+  
+  // 设置轮询，每2秒检查一次登录状态
+  loginPollingTimer.value = setInterval(async () => {
+    try {
+      const response = await loginApi.checkLoginStatus({ uuid: qrUuid.value })
+      if (response.code === 1) {
+        // 检查登录状态
+        if (response.data && response.data.logged_in) {
+          // 登录成功
+          isStudentLoggedIn.value = true
+          // 停止轮询
+          clearInterval(loginPollingTimer.value)
+          loginPollingTimer.value = null
+        }
+      }
+    } catch (error) {
+      console.error('检查登录状态失败:', error)
+    }
+  }, 2000)
+}
+
+// 处理学生退出登录
+const handleStudentLogout = () => {
+  isStudentLoggedIn.value = false
+  // 重新获取二维码
+  getQRCode()
+}
+
 // 测试功能方法
-const connectDevice = () => {
+const connectDevice = async () => {
   if (window.android) {
     testStatus.value = '正在连接设备...'
-    window.android.connectDevice('/dev/ttyS3')
+    try {
+      await cardReaderApi.connectDevice('/dev/ttyS3')
+      testStatus.value = '设备连接成功'
+    } catch (error) {
+      console.error('连接设备失败:', error)
+      testStatus.value = '连接设备失败'
+    }
   } else {
     testStatus.value = 'Android接口不可用'
   }
 }
 
-const disconnectDevice = () => {
+const disconnectDevice = async () => {
   if (window.android) {
     testStatus.value = '正在断开设备...'
-    window.android.disconnectDevice()
+    try {
+      await cardReaderApi.disconnectDevice()
+      testStatus.value = '设备断开成功'
+    } catch (error) {
+      console.error('断开设备失败:', error)
+      testStatus.value = '断开设备失败'
+    }
   } else {
     testStatus.value = 'Android接口不可用'
   }
 }
 
-const readCard = () => {
+const readCard = async () => {
   if (window.android) {
     testStatus.value = '正在读卡...'
-    window.android.readCard()
+    try {
+      await cardReaderApi.readCard()
+      // 卡片信息会通过事件回调获取
+    } catch (error) {
+      console.error('读卡失败:', error)
+      testStatus.value = '读卡失败'
+    }
   } else {
     testStatus.value = 'Android接口不可用'
   }
 }
 
-const startAutoRead = () => {
+const startAutoRead = async () => {
   if (window.android) {
     testStatus.value = '开始自动读卡...'
-    window.android.startAutoRead()
+    try {
+      await cardReaderApi.startAutoRead()
+      testStatus.value = '自动读卡已启动'
+    } catch (error) {
+      console.error('启动自动读卡失败:', error)
+      testStatus.value = '启动自动读卡失败'
+    }
   } else {
     testStatus.value = 'Android接口不可用'
   }
 }
 
-const stopAutoRead = () => {
+const stopAutoRead = async () => {
   if (window.android) {
     testStatus.value = '停止自动读卡...'
-    window.android.stopAutoRead()
+    try {
+      await cardReaderApi.stopAutoRead()
+      testStatus.value = '自动读卡已停止'
+    } catch (error) {
+      console.error('停止自动读卡失败:', error)
+      testStatus.value = '停止自动读卡失败'
+    }
   } else {
     testStatus.value = 'Android接口不可用'
   }
 }
 
-const getFirmwareVersion = () => {
+const getFirmwareVersion = async () => {
   if (window.android) {
     testStatus.value = '正在获取固件版本...'
-    window.android.getFirmwareVersion()
+    try {
+      const version = await cardReaderApi.getFirmwareVersion()
+      testStatus.value = `固件版本: ${version}`
+    } catch (error) {
+      console.error('获取固件版本失败:', error)
+      testStatus.value = '获取固件版本失败'
+    }
   } else {
     testStatus.value = 'Android接口不可用'
   }
+}
+const handleHideConsole = () => {
+  window.vconsole.destroy()
 }
 </script>
 
@@ -563,8 +741,8 @@ const getFirmwareVersion = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding-bottom: 16px;
+  gap: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px dashed #eeeeee;
 }
 
@@ -615,15 +793,15 @@ const getFirmwareVersion = () => {
   justify-content: center;
   background-color: #e2f1ff;
   border-radius: 6px;
-  width: 140px;
-  height: 140px;
+  width: 160px;
+  height: 160px;
   margin: 0 auto;
   align-items: center;
 }
 
 .qr-box {
-  width: 120px;
-  height: 120px;
+  width: 140px;
+  height: 140px;
   position: relative;
   display: flex;
   justify-content: center;
@@ -706,6 +884,87 @@ const getFirmwareVersion = () => {
 .tip-text {
   font-size: 12px;
   color: #666;
+}
+
+.expire-time {
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+}
+
+/* 登录成功状态样式 */
+.login-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 0;
+  text-align: center;
+}
+
+.success-icon {
+  margin-bottom: 16px;
+}
+
+.success-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+}
+
+.logout-btn {
+  background-color: #0080ff;
+  color: #ffffff;
+  padding: 8px 24px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.logout-btn:hover {
+  background-color: #0066cc;
+}
+
+/* 加载状态样式 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #0080ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 8px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 12px;
+  color: #666;
+}
+
+.error-text {
+  font-size: 12px;
+  color: #ff4d4f;
+  text-align: center;
+  padding: 20px;
+}
+
+.qrcode {
+  margin: 10px auto;
 }
 
 .middle-col {

@@ -1,7 +1,10 @@
 import { defineStore } from 'pinia'
+import { resumeApi } from '../services/api'
 
 export const useResumeStore = defineStore('resume', {
   state: () => ({
+    encryptionKey: 'TAnD1HXWVxgBdSLo',
+    schoolId: import.meta.env.PROD ? 'yxqqnn0300000001' : 'yxqqnn2200000006',
     positionCategories: [
       { id: 1, name: '数据工程师', count: 32 },
       { id: 2, name: '前端工程师', count: 28 },
@@ -27,10 +30,12 @@ export const useResumeStore = defineStore('resume', {
         workExperience: [
           {
             period: '2020.06 - 2020.07',
-            company: '主要负责记录该学院学生学习情况，督促学生学习，帮助学生学习，给学生答疑解惑，并组织长知识竞赛，了解学生情况。'
+            company: '湖南师范大学',
+            position: '学习委员',
+            description: '主要负责记录该学院学生学习情况，督促学生学习，帮助学生学习，给学生答疑解惑，并组织长知识竞赛，了解学生情况。'
           },
           {
-            period: '2021.07 - 2020.09',
+            period: '2020.09 - 2021.07',
             company: '广汽菲亚特克莱斯勒汽车有限公司',
             position: '推销员',
             description: '主要负责汽车展厅的客户接待，产品讲解，材料申报以及产品试验。'
@@ -106,7 +111,9 @@ export const useResumeStore = defineStore('resume', {
       { label: '有意向', value: '2' },
       { label: '不合适', value: '3' },
       { label: '初试用', value: '4' }
-    ]
+    ],
+    loading: false,
+    error: null
   }),
   getters: {
     getSelectedResume: (state) => state.selectedResume,
@@ -116,6 +123,8 @@ export const useResumeStore = defineStore('resume', {
     getPositionCategories: (state) => state.positionCategories,
     getJobs: (state) => state.jobs,
     getCvList: (state) => state.cvList,
+    isLoading: (state) => state.loading,
+    getError: (state) => state.error
   },
   actions: {
     selectResume(resume) {
@@ -124,8 +133,57 @@ export const useResumeStore = defineStore('resume', {
     switchTab(value) {
       this.activeTab = value
     },
-    updateResumeStatus(resume, status) {
-      resume.status = status
+    async updateResumeStatus(resume, status) {
+      try {
+        this.loading = true
+        await resumeApi.updateResumeStatus(resume.id, status)
+        resume.status = status
+        this.error = null
+      } catch (error) {
+        console.error('更新简历状态失败:', error)
+        this.error = '更新简历状态失败'
+      } finally {
+        this.loading = false
+      }
+    },
+    async fetchPositionCategories() {
+      try {
+        this.loading = true
+        const data = await resumeApi.getPositionCategories()
+        this.positionCategories = data
+        this.error = null
+      } catch (error) {
+        console.error('获取职位分类失败:', error)
+        this.error = '获取职位分类失败'
+      } finally {
+        this.loading = false
+      }
+    },
+    async fetchStudentResumes(params) {
+      try {
+        this.loading = true
+        const data = await resumeApi.getStudentResumes(params)
+        this.studentResumes = data
+        this.error = null
+      } catch (error) {
+        console.error('获取学生简历失败:', error)
+        this.error = '获取学生简历失败'
+      } finally {
+        this.loading = false
+      }
+    },
+    async fetchJobs() {
+      try {
+        this.loading = true
+        const data = await resumeApi.getJobs()
+        this.jobs = data
+        this.error = null
+      } catch (error) {
+        console.error('获取职位列表失败:', error)
+        this.error = '获取职位列表失败'
+      } finally {
+        this.loading = false
+      }
     }
   }
 })

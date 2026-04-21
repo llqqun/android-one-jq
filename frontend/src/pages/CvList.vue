@@ -38,38 +38,47 @@
           <div class="cv-content">
             <!-- 左侧应聘人员列表 -->
             <div class="applicant-list">
-              <div class="applicant-item" v-for="resume in studentResumes" :key="resume.id" 
-                :class="{ active: selectedResume && selectedResume.id === resume.id }" 
-                @click="selectResume(resume)">
-                <div class="applicant-header">
-                  <div class="avatar">{{ resume.name.charAt(0) }}</div>
-                  <div class="applicant-basic">
-                    <div class="name-info">
-                      <span class="name">{{ resume.name }}</span>
-                      <div class="gender">
-                        <img v-if="resume.gender === 'male'" src="../assets/svgs/man.svg" alt="male" class="svg-icon" />
-                        <img v-else src="../assets/svgs/woman.svg" alt="female" class="svg-icon" />
+              <div v-if="loading" class="loading-container">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">加载中...</div>
+              </div>
+              <div v-else-if="error" class="error-container">
+                <div class="error-text">{{ error }}</div>
+                <div class="retry-btn" @click="resumeStore.fetchStudentResumes({ status: activeTab })">重试</div>
+              </div>
+              <div v-else>
+                <div class="applicant-item" v-for="resume in studentResumes" :key="resume.id" 
+                  :class="{ active: selectedResume && selectedResume.id === resume.id }" 
+                  @click="selectResume(resume)">
+                  <div class="applicant-header">
+                    <div class="avatar">{{ resume.name.charAt(0) }}</div>
+                    <div class="applicant-basic">
+                      <div class="name-info">
+                        <span class="name">{{ resume.name }}</span>
+                        <div class="gender">
+                          <img v-if="resume.gender === 'male'" src="../assets/svgs/man.svg" alt="male" class="svg-icon" />
+                          <img v-else src="../assets/svgs/woman.svg" alt="female" class="svg-icon" />
+                        </div>
+                        <span class="age">{{ resume.age }}岁</span>
+                        <span class="apply-time">{{ resume.applyTime }}</span>
                       </div>
-                      <span class="age">{{ resume.age }}岁</span>
-                      <span class="apply-time">{{ resume.applyTime }}</span>
-                    </div>
-                    <div class="intention-salary">
-                      <span class="intention-title">求职意向：</span>
-                      <span class="intention">{{ resume.intention }}</span>
-                      <span class="salary">北京</span>
-                      <span class="salary">10K-15K</span>
+                      <div class="intention-salary">
+                        <span class="intention-title">求职意向：</span>
+                        <span class="intention">{{ resume.intention }}</span>
+                        <span class="salary">{{ resume.salary }}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div class="work-experience">
-                  <div class="exp-item" v-for="(exp, index) in resume.workExperience.slice(0, 2)" :key="index">
-                    <div class="exp-bullet">
-                      <img src="../assets/svgs/job.svg" alt="job" class="svg-icon" />
-                    </div>
-                    <div class="exp-content">
-                      <div class="exp-period">2023.01-2023.08</div>
-                      <div class="exp-info">泉盈投资有限公司</div>
-                      <div class="exp-position">数据科学与大数据技术</div>
+                  <div class="work-experience">
+                    <div class="exp-item" v-for="(exp, index) in resume.workExperience.slice(0, 2)" :key="index">
+                      <div class="exp-bullet">
+                        <img src="../assets/svgs/job.svg" alt="job" class="svg-icon" />
+                      </div>
+                      <div class="exp-content">
+                        <div class="exp-period">{{ exp.period }}</div>
+                        <div class="exp-info">{{ exp.company }}</div>
+                        <div class="exp-position">{{ exp.position }}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -161,7 +170,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useResumeStore } from '../store/resume'
 
 const resumeStore = useResumeStore()
@@ -171,17 +180,28 @@ const studentResumes = resumeStore.studentResumes
 const tabs = resumeStore.tabs
 const activeTab = resumeStore.activeTab
 const selectedResume = computed(() => resumeStore.selectedResume)
+const loading = computed(() => resumeStore.loading)
+const error = computed(() => resumeStore.error)
+
 const selectResume = (resume) => {
   resumeStore.selectResume(resume)
 }
 
 const switchTab = (value) => {
   resumeStore.switchTab(value)
+  // 切换标签时重新获取对应状态的简历
+  resumeStore.fetchStudentResumes({ status: value })
 }
 
 const handleStatusChange = (resume, status) => {
   resumeStore.updateResumeStatus(resume, status)
 }
+
+// 页面加载时获取数据
+onMounted(() => {
+  resumeStore.fetchPositionCategories()
+  resumeStore.fetchStudentResumes({ status: activeTab })
+})
 </script>
 
 <style lang="scss" scoped>
@@ -189,6 +209,7 @@ const handleStatusChange = (resume, status) => {
 .page-container {
   background-color: #fff;
   @include flex-fun(column, flex-start, flex-start);
+  min-height: 100vh;
 }
 
 .headers {
@@ -196,20 +217,22 @@ const handleStatusChange = (resume, status) => {
   @include flex-fun(row, flex-start, center);
   padding: 0 20px;
   background-color: #fff;
-  height: 50px;
+  height: 60px;
   flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   .header-left {
-  @include flex-fun(row, flex-start, center);
-  flex: 1;
-}
+    @include flex-fun(row, flex-start, center);
+    flex: 1;
+  }
 
-.header-right {
-  @include flex-fun(row, flex-start, center);
-}
+  .header-right {
+    @include flex-fun(row, flex-start, center);
+  }
 }
 
 .content {
   width: 100%;
+  flex: 1;
 }
 
 .svg-icon {
@@ -250,6 +273,7 @@ const handleStatusChange = (resume, status) => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
 }
 
 .sidebar-header {
@@ -258,6 +282,7 @@ const handleStatusChange = (resume, status) => {
   color: #333333;
   padding: 16px;
   border-bottom: 1px solid #e8ecf4;
+  background-color: #f8f9fa;
 }
 
 .category-list {
@@ -274,11 +299,20 @@ const handleStatusChange = (resume, status) => {
   font-size: 13px;
   color: #555555;
   border-bottom: 1px solid #e8ecf4;
+  transition: background-color 0.3s;
+  cursor: pointer;
+}
+
+.category-item:hover {
+  background-color: #f7fbff;
 }
 
 .category-count {
   font-size: 12px;
   color: #999999;
+  background-color: #f0f0f0;
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 
 .right-content {
@@ -290,6 +324,54 @@ const handleStatusChange = (resume, status) => {
   border-top-left-radius: 12px;
   background-color: #F7FBFF;
   padding: 10px;
+  margin-left: 10px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .left-sidebar {
+    width: 150px;
+  }
+  
+  .applicant-list {
+    width: 280px;
+  }
+}
+
+@media (max-width: 992px) {
+  .content {
+    flex-direction: column;
+  }
+  
+  .left-sidebar {
+    width: 100%;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+    margin-bottom: 10px;
+  }
+  
+  .right-content {
+    margin-left: 0;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+  }
+  
+  .cv-content {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .applicant-list {
+    width: 100%;
+    height: 300px;
+    margin-bottom: 10px;
+  }
+  
+  .resume-detail {
+    width: 100%;
+    height: 400px;
+  }
 }
 
 .cv-list-container {
@@ -718,5 +800,67 @@ const handleStatusChange = (resume, status) => {
   padding: 8px 24px;
   border-radius: 4px;
   font-size: 14px;
+}
+
+/* 加载状态样式 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  width: 100%;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #0080ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 14px;
+  color: #666666;
+}
+
+/* 错误状态样式 */
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  width: 100%;
+  padding: 20px;
+  text-align: center;
+}
+
+.error-text {
+  font-size: 14px;
+  color: #ff4d4f;
+  margin-bottom: 16px;
+}
+
+.retry-btn {
+  background-color: #0080ff;
+  color: #ffffff;
+  padding: 8px 24px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.retry-btn:hover {
+  background-color: #0066cc;
 }
 </style>

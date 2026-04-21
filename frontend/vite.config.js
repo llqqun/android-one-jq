@@ -5,8 +5,25 @@ import { viteSingleFile } from "vite-plugin-singlefile"
 export default defineConfig({
   plugins: [vue(), viteSingleFile()],
   base: './',
+  resolve: {
+    alias: {
+      '@': '/src',
+    }
+  },
   server: {
-    port: 9090
+    port: 9090,
+    proxy: {
+      '/machine': {
+        target: 'http://localhost:9084',
+        changeOrigin: true,
+        secure: false
+      },
+      '/api': {
+        target: 'http://localhost:9084',
+        changeOrigin: true,
+        secure: false
+      }
+    },
   },
   build: {
     outDir: '../app/src/main/assets',
