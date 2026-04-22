@@ -1,6 +1,6 @@
 <template>
   <div class="home-container">
-    <div class="img-box" @click="handleRoute">
+    <div class="img-box">
       <img src="../assets/images/home_2.png" class="home-image-logo" alt="logo" />
       <img src="../assets/images/home_3.png" class="home-image-text" alt="text" />
     </div>
@@ -45,7 +45,7 @@
             @click="handlePasswordLogin">
             登录
           </van-button>
-          <div class="device-id">默认设备编号：{{ deviceId }}</div>
+          <div class="device-id">设备编号：{{ deviceId }}</div>
         </div>
 
         <!-- 扫码登录 -->
@@ -72,7 +72,8 @@ import QrcodeVue from 'qrcode.vue';
 import { loginApi } from '../services/api';
 import { useResumeStore } from '../store/resume';
 import { showToast } from 'vant';
-import { encryptPassword } from '@/utils/index.js';
+import { encryptPassword, getDevScreen } from '@/utils/index.js';
+
 const resumeStore = useResumeStore();
 
 const router = useRouter();
@@ -84,20 +85,19 @@ const deviceId = ref('0513201062000003180902854042382');
 // 接收设备ID（SAMID）
 window.setDeviceId = function (id) {
   deviceId.value = id;
+  resumeStore.setDeviceId(id);
   console.log('获取到设备ID:', id);
 };
 
-// 初始化时获取设备ID
-onMounted(() => {
-  // 调用 Android 原生方法获取设备ID
-  if (window.android && window.android.getDeviceId) {
-    const id = window.android.getDeviceId();
-    if (id) {
-      deviceId.value = id;
-      console.log('初始化获取到设备ID:', id);
-    }
-  }
-});
+// 处理副屏登录成功的回调
+window.onSecondaryScreenLoginSuccess = function () {
+  console.log('副屏登录成功，通知主屏');
+  // 可以在这里添加主屏需要执行的操作
+  // 例如：显示登录成功提示、跳转到指定页面等
+  // 跳转到resumeSubmission页面
+  router.push('/resumeSubmission');
+};
+
 
 // 登录弹窗状态
 const showLoginDialog = ref(false);
@@ -113,8 +113,8 @@ watch(loginType, (newType) => {
 
 // 账号密码登录表单
 const loginForm = ref({
-  username: '13017111700',
-  password: 'Dw###772620331',
+  username: '15173608575',
+  password: 'Yy147258',
 });
 const loginLoading = ref(false);
 
@@ -163,7 +163,7 @@ const getHRQRCode = async () => {
       qrCodeExpireTime.value = (response.data.expire_time - 10000) / 1000;
       // 启动二维码过期定时器
       startQRCodeTimer();
-      qrUuid.value = response.data.uuid;
+      qrUuid.value = response.data.ticket;
       // 启动登录状态轮询
       startLoginPolling();
     } else {
@@ -206,13 +206,17 @@ const startLoginPolling = () => {
   // 设置轮询，每2秒检查一次登录状态
   loginPollingTimer.value = setInterval(async () => {
     try {
-      const response = await loginApi.checkHRLoginStatus({ uuid: qrUuid.value });
+      const response = await loginApi.checkHRLoginStatus({ ticket: qrUuid.value });
       if (response.code === 1) {
         // 检查登录状态
         if (response.data && response.data.logged_in) {
           // 登录成功
           handleLoginSuccess();
         }
+      } else {
+        clearInterval(loginPollingTimer.value);
+        showToast(response.msg || '登录失败');
+        getHRQRCode();
       }
     } catch (error) {
       console.error('检查登录状态失败:', error);
@@ -260,8 +264,14 @@ const handlePasswordLogin = async () => {
     if (response.code === 1) {
       // 存储企业信息
       resumeStore.setCompanyLoginInfo(response.data);
-      localStorage.setItem('companyLoginInfo', JSON.stringify(response.data));
-      handleLoginSuccess();
+      try {
+        localStorage.setItem('companyLoginInfo', JSON.stringify(response.data));
+        handleLoginSuccess();
+      } catch (storageError) {
+        console.error('localStorage存储失败:', storageError);
+        // 即使存储失败也继续登录流程
+        handleLoginSuccess();
+      }
     } else {
       showToast(response.msg || '登录失败');
     }
@@ -287,31 +297,36 @@ const handleLoginSuccess = async () => {
     qrCodeTimer.value = null;
   }
 
-  // 获取企业详情及职位信息
-  try {
-    // const response = await loginApi.getCompanyDetail()
-    // console.log('获取企业详情响应:', response)
-    // if (response.code === 1) {
-    //   // 保存企业信息到本地存储
-    //   localStorage.setItem('companyInfo', JSON.stringify(response.data))
-    // }
-  } catch (error) {
-    console.error('获取企业详情失败:', error);
-  }
-
   // 关闭登录弹窗
   showLoginDialog.value = false;
 
+  // 检查当前是否为副屏
+  if (screenType.value === 'secondary') {
+    // 副屏登录成功，通知主屏
+    try {
+      if (window.android && window.android.notifyMainScreenLoginSuccess) {
+        window.android.notifyMainScreenLoginSuccess();
+        console.log('副屏登录成功，已通知主屏');
+      }
+    } catch (error) {
+      console.error('通知主屏失败:', error);
+    }
+  }
+
   // 跳转到cvList页面
-  // router.push('/cvList')
-  router.push('/resumeSubmission');
+  router.push('/cvList')
+  // router.push('/resumeSubmission');
 };
 
 onMounted(() => {
-  // setTimeout(() => {
-  //   showLoginDialog.value = true
-  // }, 1500)
-  // 调用 Android 原生方法获取屏幕类型
+  if (window.android && window.android.getDeviceId) {
+    const id = window.android.getDeviceId();
+    if (id) {
+      deviceId.value = id;
+      console.log('初始化获取到设备ID:', id);
+    }
+  }
+  getDevScreen()
   if (window.android && window.android.getScreenType) {
     screenType.value = window.android.getScreenType();
     console.log('Screen type:', screenType.value);
@@ -321,12 +336,13 @@ onMounted(() => {
       setTimeout(() => {
         showLoginDialog.value = true
       }, 3000)
-    } else {
-      // 其他屏幕直接跳转
-      setTimeout(() => {
-       handleRoute();
-      }, 3000);
     }
+    // else {
+    //   // 其他屏幕直接跳转
+    //   setTimeout(() => {
+    //    handleRoute();
+    //   }, 3000);
+    // }
   }
 });
 

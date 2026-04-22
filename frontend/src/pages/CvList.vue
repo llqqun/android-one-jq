@@ -9,7 +9,12 @@
       </div>
       <div class="header-right">
         <div class="van-search">
-          <input type="text" placeholder="搜索学生" class="van-search__input" />
+          <input
+            type="text"
+            placeholder="搜索学生"
+            class="van-search__input"
+            @change="handleSearch"
+            v-model="searchText" />
         </div>
         <img src="../assets/svgs/exit.svg" alt="exit" class="svg-icon" @click="logout" />
       </div>
@@ -27,7 +32,9 @@
             :class="{ active: category.publish_id === currentCategory?.publish_id }"
             @click="switchCategory(category)">
             <div class="category-name">{{ category.job_name }}</div>
-            <div class="category-count">{{ category.job_number }}</div>
+            <div v-if="category.pending_count" class="category-count">
+              {{ category.pending_count }}
+            </div>
           </div>
         </div>
         <div v-else class="no-category">暂无职位分类</div>
@@ -54,12 +61,15 @@
                 <div class="loading-spinner"></div>
                 <div class="loading-text">加载中...</div>
               </div>
+              <div v-else-if="studentResumes.length === 0" class="no-applicant">
+                <div class="no-applicant">暂无简历申请</div>
+              </div>
               <div v-else>
                 <div
                   class="applicant-item"
                   v-for="resume in studentResumes"
-                  :key="resume.id"
-                  :class="{ active: selectedResume && selectedResume.id === resume.id }"
+                  :key="resume.apply_id"
+                  :class="{ active: selectedResume && selectedResume.apply_id === resume.apply_id }"
                   @click="selectResume(resume)">
                   <div class="applicant-header">
                     <div class="avatar">
@@ -72,13 +82,9 @@
                           <img
                             v-if="resume.sex === '男'"
                             src="../assets/svgs/man.svg"
-                            alt="male"
+                            alt="男"
                             class="svg-icon" />
-                          <img
-                            v-else
-                            src="../assets/svgs/woman.svg"
-                            alt="female"
-                            class="svg-icon" />
+                          <img v-else src="../assets/svgs/woman.svg" alt="女" class="svg-icon" />
                         </div>
                         <span class="age">{{ resume.age }}岁</span>
                         <span class="apply-time">{{ resume.apply_time }}</span>
@@ -87,15 +93,15 @@
                         <span class="intention-title">求职意向：</span>
                         <span class="intention">{{ resume.expect_job }}</span>
                         <span class="salary">{{ resume.expect_city }}</span>
-                        <span class="salary">{{ resume.expected_salary_min }} - {{ resume.expected_salary_max }}</span>
+                        <span class="salary"
+                          >{{ resume.expected_salary_min }}k -
+                          {{ resume.expected_salary_max }}k</span
+                        >
                       </div>
                     </div>
                   </div>
                   <div class="work-experience">
-                    <div
-                      class="exp-item"
-                      v-for="(exp, index) in resume.last_work"
-                      :key="index">
+                    <div class="exp-item" v-for="(exp, index) in [resume.last_work]" :key="index">
                       <div class="exp-bullet">
                         <img src="../assets/svgs/job.svg" alt="job" class="svg-icon" />
                       </div>
@@ -111,45 +117,64 @@
             </div>
 
             <!-- 右侧简历详情 -->
-            <div class="resume-detail" v-if="selectedResume">
+            <div class="resume-detail" v-if="resumeDetail">
               <div class="cv-detail">
-                <div class="detail-header">
-                  <div class="avatar-large">{{ selectedResume.name.charAt(0) }}</div>
+                <div v-if="resumeDetail.basic" class="detail-header">
+                  <div class="avatar-large">
+                    <img :src="resumeDetail.basic.head_url" alt="avatar" class="avatar-image" />
+                  </div>
                   <div class="detail-basic">
-                    <div class="name-age">{{ selectedResume.name }} {{ selectedResume.age }}岁</div>
+                    <div class="name-age">
+                      {{ resumeDetail.basic.user_name }}
+                      <span style="font-size: 14px; color: #999999; margin-left: 10px"
+                        >{{ resumeDetail.basic.age }}岁</span
+                      >
+                    </div>
                     <div class="intention-salary">
-                      <span class="intention">{{ selectedResume.intention }}</span>
-                      <span class="salary">{{ selectedResume.salary }}</span>
+                      <span class="intention">求职意向：{{ selectedResume.expect_job }}</span>
+                      <span class="salary">{{ selectedResume.expect_city }}</span>
+                      <span class="salary"
+                        >{{ resumeDetail.basic.expected_salary_min }}k -
+                        {{ resumeDetail.basic.expected_salary_max }}k</span
+                      >
                     </div>
                     <div class="contact-info">
-                      <span class="phone">{{ selectedResume.phone }}</span>
-                      <span class="email">{{ selectedResume.email }}</span>
+                      <span class="phone">{{ resumeDetail.phone }}</span>
+                      <span class="email">{{ resumeDetail.email }}</span>
                     </div>
                   </div>
                 </div>
 
                 <!-- 教育经历 -->
-                <div class="section">
+                <div v-if="resumeDetail.resume_education?.list?.length > 0" class="section">
                   <div class="section-title">教育经历</div>
                   <div class="section-content">
-                    <div
-                      class="education-item"
-                      v-for="(edu, index) in selectedResume.education"
-                      :key="index">
-                      <div class="edu-period">{{ edu.period }}</div>
-                      <div class="edu-info">
-                        <div class="edu-school">{{ edu.school }}</div>
-                        <div class="edu-detail">{{ edu.degree }}·{{ edu.major }}</div>
+                    <div class="education-container">
+                      <div
+                        class="education-item"
+                        v-for="(edu, index) in resumeDetail.resume_education?.list || []"
+                        :key="index">
+                        <div class="edu-bullet">
+                          <div class="bullet-circle"></div>
+                          <div class="bullet-line"></div>
+                        </div>
+                        <div class="edu-info">
+                          <div class="edu-school">{{ edu.school_name }}</div>
+                          <div class="edu-row">
+                            <div class="edu-period">{{ edu.start_date }} — {{ edu.end_date }}</div>
+                            <div class="edu-detail">{{ edu.degree }}·{{ edu.major }}</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <!-- 自我描述 -->
-                <div class="section">
+                <div v-if="resumeDetail.introduction" class="section">
                   <div class="section-title">自我描述</div>
                   <div class="section-content">
-                    <div class="self-intro">{{ selectedResume.selfIntro }}</div>
+                    <div class="self-intro">{{ resumeDetail.introduction }}</div>
                   </div>
                 </div>
 
@@ -157,16 +182,25 @@
                 <div class="section">
                   <div class="section-title">工作经历</div>
                   <div class="section-content">
-                    <div
-                      class="work-item"
-                      v-for="(work, index) in selectedResume.workExperience"
-                      :key="index">
-                      <div class="work-period">{{ work.period }}</div>
-                      <div class="work-info">
-                        <div class="work-company">{{ work.company }}</div>
-                        <div v-if="work.position" class="work-position">{{ work.position }}</div>
-                        <div v-if="work.description" class="work-description">
-                          {{ work.description }}
+                    <div class="work-container">
+                      <div
+                        class="work-item"
+                        v-for="(work, index) in resumeDetail?.resume_work_experience?.list || []"
+                        :key="index">
+                        <div class="work-bullet">
+                          <div class="bullet-circle"></div>
+                          <div class="bullet-line"></div>
+                        </div>
+                        <div class="work-info">
+                          <div class="work-row">
+                            <div class="work-company-info">
+                              <div class="work-company">{{ work.company_name }}<span v-if="work.position">·{{ work.position }}</span></div>
+                            </div>
+                            <div class="work-period">{{ work.start_date }} — {{ work.end_date }}</div>
+                          </div>
+                          <div v-if="work.experience_description" class="work-description">
+                            {{ work.experience_description }}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -177,24 +211,84 @@
                 <div class="section">
                   <div class="section-title">在校经历</div>
                   <div class="section-content">
-                    <div
-                      class="school-item"
-                      v-for="(school, index) in selectedResume.schoolExperience"
-                      :key="index">
-                      <div class="school-period">{{ school.period }}</div>
-                      <div class="school-description">{{ school.description }}</div>
+                    <div class="school-container">
+                      <div
+                        class="school-item"
+                        v-for="(school, index) in resumeDetail?.resume_school_experience?.list || []"
+                        :key="index">
+                        <div class="school-bullet">
+                          <div class="bullet-circle"></div>
+                          <div class="bullet-line"></div>
+                        </div>
+                        <div class="school-info">
+                          <div class="school-row">
+                            <div class="school-position">{{ school.position }}</div>
+                            <div class="school-period">{{ school.start_date }} — {{ school.end_date }}</div>
+                          </div>
+                          <div class="school-description">{{ school.experience_description }}</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                <!-- 技能信息 -->
+
+                <div v-if="resumeDetail?.resume_skill?.list?.length" class="section">
+                  <div class="section-title">技能信息</div>
+                  <div class="section-content">
+                    <div class="skill-container">
+                      <div
+                        class="skill-item"
+                        v-for="(skill, index) in resumeDetail?.resume_skill?.list || []"
+                        :key="index">
+                        <div class="skill-bullet">
+                          <div class="bullet-circle"></div>
+                          <div class="bullet-line"></div>
+                        </div>
+                        <div class="skill-info">
+                          <div class="skill-name">{{ skill.skill_name }}</div>
+                          <div class="skill-level">{{ skill.skill_level }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 项目经历  -->
+                <div class="section">
+                  <div class="section-title">项目经历</div>
+                  <div class="section-content">
+                    <div class="project-container">
+                      <div
+                        class="project-item"
+                        v-for="(project, index) in resumeDetail?.resume_project_experience?.list || []"
+                        :key="index">
+                        <div class="project-bullet">
+                          <div class="bullet-circle"></div>
+                          <div class="bullet-line"></div>
+                        </div>
+                        <div class="project-info">
+                          <div class="project-row">
+                            <div class="project-name">{{ project.project_name }}</div>
+                            <div class="project-period">{{ project.start_date }} — {{ project.end_date }}</div>
+                          </div>
+                          <div class="project-description">{{ project.project_description }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
               <!-- 操作按钮 -->
               <div class="action-buttons">
-                <div class="btn" @click="handleStatusChange(selectedResume, '不合适')">不合适</div>
-                <div class="btn btn-blue" @click="handleStatusChange(selectedResume, '有意向')">
+                <div v-if="activeTab !== 'unsuitable'" class="btn" @click="handleStatusChange(selectedResume, 'unsuitable')">不合适</div>
+                <div v-if="activeTab !== 'interested'" class="btn btn-blue" @click="handleStatusChange(selectedResume, 'interested')">
                   有意向
                 </div>
-                <div class="btn btn-blue" @click="handleStatusChange(selectedResume, '拟录用')">
+                <div v-if="activeTab === 'interested'" class="btn btn-blue" @click="handleStatusChange(selectedResume, 'proposed')">
                   拟录用
                 </div>
               </div>
@@ -210,60 +304,57 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useResumeStore } from '../store/resume';
 import { useRouter } from 'vue-router';
 import { loginApi } from '@/services/api.js';
 import { showToast } from 'vant';
+import { getDevScreen } from '@/utils/index.js';
 
 const resumeStore = useResumeStore();
 const router = useRouter();
-
 const positionCategories = ref([]);
 const currentCategory = ref(null);
 const studentResumes = ref([]);
+const companyLoginInfo = ref(null);
 const tabs = [
   { label: '待处理', value: 'pending' },
   { label: '有意向', value: 'interested' },
   { label: '不合适', value: 'unsuitable' },
-  { label: '拟录用', value: 'proposed' }
+  { label: '拟录用', value: 'proposed' },
 ];
+const searchText = ref('');
 const activeTab = ref('pending');
 const selectedResume = ref(null);
+const resumeDetail = ref(null);
+
 const loading = ref(false);
-const error = ref('');
 const companyInfo = ref(null);
 
 const switchCategory = async (category) => {
   currentCategory.value = category;
   await fetchJobApplyList(category);
 };
-
+// 获取职位申请简历列表
 const fetchJobApplyList = async (category) => {
   loading.value = true;
   try {
-    let companyLoginInfo = resumeStore.companyLoginInfo;
-    const companyLoginInfoStr = localStorage.getItem('companyLoginInfo');
-    if (!companyLoginInfo && companyLoginInfoStr) {
-      companyLoginInfo = JSON.parse(companyLoginInfoStr);
+    const response = await loginApi.getJobApplyList({
+      device_id: resumeStore.deviceId,
+      company_id: companyInfo.value.company_id,
+      school_id: resumeStore.schoolId,
+      publish_id: category.publish_id,
+      type: activeTab.value,
+      keywords: searchText.value,
+    });
+    if (response.code !== 1) {
+      showToast(response.msg || '获取简历数据失败');
+      return;
     }
-    
-    if (companyLoginInfo) {
-      const response = await loginApi.getJobApplyList({
-        device_id: resumeStore.deviceId || '0513201062000003180902854042382',
-        company_id: companyLoginInfo.company_id,
-        school_id: resumeStore.schoolId,
-        publish_id: category.publish_id,
-        type: activeTab.value
-      });
-      if (response.code !== 1) {
-        showToast(response.msg || '获取简历数据失败');
-        return;
-      }
-      if (response.code === 1 && Array.isArray(response.data)) {
-        // 处理包含code字段的响应
-        studentResumes.value = response.data;
-      }
+    if (response.code === 1 && Array.isArray(response.data)) {
+      // 处理包含code字段的响应
+      studentResumes.value = response.data;
+      console.log('获取到的简历列表:', studentResumes.value);
     }
   } catch (err) {
     console.error('获取申请列表失败:', err);
@@ -279,32 +370,64 @@ const switchTab = async (value) => {
   }
 };
 
-const selectResume = (resume) => {
+const selectResume = async (resume) => {
+  console.log(resume);
   selectedResume.value = resume;
+  const res = await loginApi.getResumeDetail({
+    apply_id: resume.apply_id,
+  });
+  if (res.code === 1) {
+    resumeDetail.value = res.data;
+    resumeDetail.value.introduction = resumeDetail.value.resume_attribute.list.find(item => item.attr_name === 'introduction')?.attribute_value || '';
+    console.log('value:', resumeDetail.value);
+  }
 };
 
-const handleStatusChange = (resume, status) => {
+const handleStatusChange = async (resume, status) => {
   // 这里可以添加状态更新逻辑
   console.log('更新简历状态:', resume, status);
+  const res = await loginApi.updateStatus({
+    apply_ids: resume.apply_id,
+    company_id: companyInfo.value.company_id,
+    hr_id: companyLoginInfo.value.hr_id,
+    status,
+  });
+  if (res.code === 1) {
+    showToast('操作成功');
+    await fetchJobApplyList(currentCategory.value);
+
+  } else {
+    showToast(res.msg || '操作失败');
+  }
 };
 // 页面初始化时获取数据
 const pageInit = async () => {
-  let companyLoginInfo = resumeStore.companyLoginInfo;
-  const companyLoginInfoStr = localStorage.getItem('companyLoginInfo');
-  if (!companyLoginInfo && companyLoginInfoStr) {
-    companyLoginInfo = JSON.parse(companyLoginInfoStr);
+  if (!resumeStore.deviceId) {
+    if (window.android && window.android.getDeviceId) {
+      const deviceId = window.android.getDeviceId();
+      if (deviceId) {
+        resumeStore.setDeviceId(deviceId);
+        console.log('初始化获取到设备ID:', deviceId);
+      }
+    }
   }
-  if (companyLoginInfo) {
+  companyLoginInfo.value = resumeStore.companyLoginInfo;
+  const companyLoginInfoStr = localStorage.getItem('companyLoginInfo');
+  if (!companyLoginInfo.value && companyLoginInfoStr) {
+    companyLoginInfo.value = JSON.parse(companyLoginInfoStr);
+  }
+  if (companyLoginInfo.value) {
     const res = await loginApi.getCompanyDetail({
-      company_id: companyLoginInfo.company_id,
+      device_id: resumeStore.deviceId,
+      company_id: companyLoginInfo.value.company_id,
       school_id: resumeStore.schoolId,
       page: 1,
-      page_size: 10,
+      page_size: 100,
     });
     if (res.code === 1) {
       companyInfo.value = res.data.company;
-      positionCategories.value = res.data.jobs.items;
-      
+      await getJobApplyList();
+
       // 默认选择第一个职位并加载数据
       if (positionCategories.value.length > 0) {
         currentCategory.value = positionCategories.value[0];
@@ -315,13 +438,57 @@ const pageInit = async () => {
   }
 };
 
+const handleSearch = () => {
+  console.log('搜索文本:', searchText.value);
+  if (searchText.value) {
+    fetchJobApplyList(currentCategory.value);
+  }
+};
+// 招聘中的职位
+const getJobApplyList = async () => {
+  const res = await loginApi.getJobApplyCount({
+    device_id: resumeStore.deviceId,
+    company_id: companyInfo.value.company_id,
+    school_id: resumeStore.schoolId,
+  });
+  if (res.code === 1) {
+    positionCategories.value = res.data;
+  }
+  console.log('获取职位分类:', res);
+};
+
 const logout = () => {
   resumeStore.logout();
   router.replace('/');
 };
 
+const updateData = async () => {
+  const res = await loginApi.getCompanyDetail({
+      device_id: resumeStore.deviceId,
+      company_id: companyInfo.value.company_id,
+      school_id: resumeStore.schoolId,
+      page: 1,
+      page_size: 100,
+    });
+    if (res.code === 1) {
+      companyInfo.value = res.data.company;
+      await getJobApplyList();
+    }
+};
+
+// 处理屏幕更新通知
+window.onScreenUpdate = function (event) {
+  console.log('收到屏幕更新通知:', event);
+  if (event === 'resume_delivered') {
+    // 当收到简历投递成功的通知时，更新数据
+    console.log('简历投递成功，更新数据');
+    updateData()
+  }
+};
+
 // 页面加载时获取数据
 onMounted(async () => {
+  getDevScreen();
   await pageInit();
 });
 </script>
@@ -337,7 +504,7 @@ onMounted(async () => {
 .headers {
   width: 100%;
   @include flex-fun(row, flex-start, center);
-  padding: 0 20px;
+  padding: 10px 20px;
   background-color: #fff;
   height: 60px;
   flex-shrink: 0;
@@ -345,10 +512,12 @@ onMounted(async () => {
   .header-left {
     @include flex-fun(row, flex-start, center);
     flex: 1;
-    .logo-image {
-      width: auto;
-      max-width: 150px;
-      max-height: 60px;
+    .company-logo {
+      .logo-image {
+        width: auto;
+        max-width: 150px;
+        max-height: 60px;
+      }
     }
   }
 
@@ -360,6 +529,12 @@ onMounted(async () => {
 .content {
   width: 100%;
   flex: 1;
+}
+
+.no-applicant {
+  padding: 16px;
+  text-align: center;
+  color: #999999;
 }
 
 .svg-icon {
@@ -439,7 +614,7 @@ onMounted(async () => {
 
 .category-count {
   font-size: 12px;
-  color: #F74D4D;
+  color: #f74d4d;
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -454,53 +629,6 @@ onMounted(async () => {
   background-color: #f7fbff;
   padding: 10px;
   margin-left: 10px;
-}
-
-/* 响应式设计 */
-@media (max-width: 1200px) {
-  .left-sidebar {
-    width: 150px;
-  }
-
-  .applicant-list {
-    width: 280px;
-  }
-}
-
-@media (max-width: 992px) {
-  .content {
-    flex-direction: column;
-  }
-
-  .left-sidebar {
-    width: 100%;
-    border-top-right-radius: 0;
-    border-bottom-left-radius: 12px;
-    border-bottom-right-radius: 12px;
-    margin-bottom: 10px;
-  }
-
-  .right-content {
-    margin-left: 0;
-    border-top-left-radius: 12px;
-    border-top-right-radius: 12px;
-  }
-
-  .cv-content {
-    flex-direction: column;
-    height: auto;
-  }
-
-  .applicant-list {
-    width: 100%;
-    height: 300px;
-    margin-bottom: 10px;
-  }
-
-  .resume-detail {
-    width: 100%;
-    height: 400px;
-  }
 }
 
 .cv-list-container {
@@ -552,7 +680,7 @@ onMounted(async () => {
 }
 
 .applicant-list {
-  width: 330px;
+  width: 380px;
   flex-shrink: 0;
   background-color: #ffffff;
   padding-right: 14px;
@@ -561,153 +689,144 @@ onMounted(async () => {
 }
 
 .applicant-item {
+  font-size: 16px;
   padding: 12px;
   cursor: pointer;
   background-color: #f7fbff;
   border: 1px solid #e2f1ff;
   border-radius: 4px;
   position: relative;
-}
+  .applicant-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  &::after {
+    content: '';
+    position: absolute;
+    right: -3px;
+    top: 50%;
+    transform: rotate(45deg) translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border: 1px solid #3ba0fe;
+    border-left: none;
+    border-bottom: none;
+    display: none;
+  }
+  &.active::after {
+    display: block;
+  }
+  &.active {
+    border-color: #3ba0fe;
+  }
+  .avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: #0080ff;
+    color: #ffffff;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    font-weight: 600;
+    margin-right: 12px;
+    .avatar-image {
+      width: 100%;
+      height: 100%;
+    }
+  }
+  .applicant-basic {
+    flex: 1;
+  }
+  .name-info {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
 
-.applicant-item::after {
-  content: '';
-  position: absolute;
-  right: -3px;
-  top: 50%;
-  transform: rotate(45deg) translateY(-50%);
-  width: 10px;
-  height: 10px;
-  border: 1px solid #3ba0fe;
-  border-left: none;
-  border-bottom: none;
-  display: none;
-}
+  .name {
+    font-weight: 600;
+    color: #333333;
+  }
 
-.applicant-item.active::after {
-  display: block;
+  .gender {
+    font-size: 0px;
+    .svg-icon {
+      width: 14px;
+      height: 14px;
+      margin-left: 0;
+    }
+  }
+
+  .age {
+    color: #999999;
+    font-size: 14px;
+  }
+
+  .apply-time {
+    color: #999999;
+    font-size: 14px;
+    margin-left: auto;
+  }
+
+  .intention-salary {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: #555555;
+  }
+
+  .salary {
+    padding-left: 5px;
+    border-left: 1px solid #dadada;
+    color: #555555;
+  }
+
+  .work-experience {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .exp-item {
+    @include flex-fun(row, flex-start, center);
+    font-size: 12px;
+    color: #555555;
+
+    .exp-bullet {
+      margin-right: 8px;
+    }
+    .svg-icon {
+      width: 14px;
+      height: 15px;
+      margin-left: 0;
+    }
+    .exp-content {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      font-size: 14px;
+    }
+    .exp-period,
+    .exp-info {
+      color: #555555;
+      margin-right: 10px;
+    }
+  }
 }
 
 .applicant-item + .applicant-item {
   margin-top: 10px;
-}
-
-.applicant-item.active {
-  border-color: #3ba0fe;
-}
-
-.applicant-header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  background-color: #0080ff;
-  color: #ffffff;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 24px;
-  font-weight: 600;
-  margin-right: 12px;
-  .avatar-image {
-    width: 100%;
-    height: 100%;
-  }
-}
-
-.applicant-basic {
-  flex: 1;
-}
-
-.name-info {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.name {
-  font-weight: 600;
-  color: #333333;
-}
-
-.gender {
-  font-size: 0px;
-}
-
-.gender .svg-icon {
-  width: 12px;
-  height: 12px;
-}
-
-.age {
-  color: #999999;
-  font-size: 12px;
-}
-
-.apply-time {
-  color: #999999;
-  font-size: 12px;
-  margin-left: auto;
-}
-
-.intention-salary {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-  font-size: 10px;
-  color: #555555;
-}
-
-.salary {
-  padding-left: 5px;
-  border-left: 1px solid #dadada;
-}
-
-.work-experience {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.exp-item {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  font-size: 12px;
-  color: #555555;
-}
-
-.exp-bullet {
-  margin-right: 4px;
-}
-
-.exp-bullet .svg-icon {
-  width: 10px;
-  height: 10px;
-  margin-left: 0;
-}
-
-.exp-content {
-  flex: 1;
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 10px;
-}
-
-.exp-period {
-  color: #555555;
-  margin-bottom: 2px;
 }
 
 .resume-detail {
@@ -716,10 +835,53 @@ onMounted(async () => {
   height: 100%;
   box-sizing: border-box;
   background-color: #ffffff;
-  border: 1px solid #eeeeee;
   border-radius: 4px;
   position: relative;
   padding-bottom: 0px;
+  border: 1px solid #eeeeee;
+  &.empty {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .avatar-large {
+    width: 80px;
+    height: 80px;
+    background-color: #0080ff;
+    color: #ffffff;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 32px;
+    font-weight: 600;
+    margin-right: 16px;
+    overflow: hidden;
+    img {
+      width: 100%;
+    }
+  }
+
+  .section {
+    margin-bottom: 24px;
+    .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333333;
+      margin-bottom: 12px;
+      height: 40px;
+      padding-left: 20px;
+      @include flex-fun(row, flex-start, center);
+      background-color: #fafafa;
+    }
+
+    .section-content {
+      padding-left: 20px;
+      display: flex;
+      flex-direction: column;
+    }
+  }
 }
 
 .cv-detail {
@@ -727,12 +889,6 @@ onMounted(async () => {
   overflow-y: auto;
   padding-bottom: 60px;
   box-sizing: border-box;
-}
-
-.resume-detail.empty {
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .empty-text {
@@ -747,20 +903,6 @@ onMounted(async () => {
   margin-bottom: 24px;
   padding-bottom: 20px;
   border-bottom: 1px solid #e8ecf4;
-}
-
-.avatar-large {
-  width: 80px;
-  height: 80px;
-  background-color: #0080ff;
-  color: #ffffff;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 32px;
-  font-weight: 600;
-  margin-right: 16px;
 }
 
 .detail-basic {
@@ -788,8 +930,10 @@ onMounted(async () => {
 }
 
 .salary {
-  color: #0080ff;
   font-weight: 500;
+  padding-left: 5px;
+  border-left: 1px solid #dadada;
+  color: #555555;
 }
 
 .contact-info {
@@ -801,21 +945,8 @@ onMounted(async () => {
   color: #999999;
 }
 
-.section {
-  margin-bottom: 24px;
-}
-
-.section-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333333;
-  margin-bottom: 12px;
-}
-
-.section-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.education-container {
+  position: relative;
 }
 
 .education-item {
@@ -823,26 +954,68 @@ onMounted(async () => {
   flex-direction: row;
   align-items: flex-start;
   font-size: 14px;
+  margin-bottom: 24px;
+  position: relative;
 }
 
-.edu-period {
-  width: 180px;
-  color: #999999;
+.edu-bullet {
+  position: relative;
+  margin-right: 16px;
   flex-shrink: 0;
+}
+
+.bullet-circle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #0080ff;
+  background-color: white;
+  position: relative;
+  z-index: 1;
+  margin-top: 2px;
+}
+
+.bullet-line {
+  position: absolute;
+  top: 20px;
+  left: 5px;
+  width: 2px;
+  height: calc(100% + 24px);
+  background-color: #E2F1FF;
+  z-index: 0;
 }
 
 .edu-info {
   flex: 1;
   color: #555555;
+  display: flex;
+  flex-direction: column;
 }
 
 .edu-school {
   font-weight: 500;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #333333;
+}
+
+.edu-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+}
+
+.edu-period {
+  color: #555555;
+  font-size: 13px;
+  width: auto;
+  flex-shrink: 0;
 }
 
 .edu-detail {
   font-size: 13px;
+  color: #666666;
 }
 
 .self-intro {
@@ -851,37 +1024,66 @@ onMounted(async () => {
   line-height: 1.5;
 }
 
+.work-container {
+  position: relative;
+}
+
 .work-item {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
   font-size: 14px;
+  margin-bottom: 24px;
+  position: relative;
 }
 
-.work-period {
-  width: 180px;
-  color: #999999;
+.work-bullet {
+  position: relative;
+  margin-right: 16px;
   flex-shrink: 0;
 }
 
 .work-info {
   flex: 1;
   color: #555555;
+  display: flex;
+  flex-direction: column;
+}
+
+.work-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.work-company-info {
+  flex: 1;
 }
 
 .work-company {
   font-weight: 500;
-  margin-bottom: 4px;
+  font-size: 14px;
+  color: #333333;
 }
 
-.work-position {
+.work-period {
+  color: #999999;
   font-size: 13px;
-  margin-bottom: 4px;
+  width: auto;
+  flex-shrink: 0;
+  margin-left: 24px;
 }
 
 .work-description {
   font-size: 13px;
+  color: #666666;
   line-height: 1.4;
+}
+
+.school-container {
+  position: relative;
 }
 
 .school-item {
@@ -889,18 +1091,104 @@ onMounted(async () => {
   flex-direction: row;
   align-items: flex-start;
   font-size: 14px;
+  margin-bottom: 24px;
+  position: relative;
 }
 
-.school-period {
-  width: 180px;
-  color: #999999;
+.school-bullet {
+  position: relative;
+  margin-right: 16px;
   flex-shrink: 0;
 }
 
-.school-description {
+.school-info {
   flex: 1;
   color: #555555;
+  display: flex;
+  flex-direction: column;
+}
+
+.school-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.school-position {
+  flex: 1;
+  font-weight: 500;
+  font-size: 14px;
+  color: #333333;
+}
+
+.school-period {
+  color: #999999;
   font-size: 13px;
+  width: auto;
+  flex-shrink: 0;
+  margin-left: 24px;
+}
+
+.school-description {
+  font-size: 13px;
+  color: #666666;
+  line-height: 1.4;
+}
+
+.project-container {
+  position: relative;
+}
+
+.project-item {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  font-size: 14px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.project-bullet {
+  position: relative;
+  margin-right: 16px;
+  flex-shrink: 0;
+}
+
+.project-info {
+  flex: 1;
+  color: #555555;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.project-name {
+  flex: 1;
+  font-weight: 500;
+  font-size: 14px;
+  color: #333333;
+}
+
+.project-period {
+  color: #999999;
+  font-size: 13px;
+  width: auto;
+  flex-shrink: 0;
+  margin-left: 24px;
+}
+
+.project-description {
+  font-size: 13px;
+  color: #666666;
   line-height: 1.4;
 }
 
@@ -915,6 +1203,8 @@ onMounted(async () => {
   flex-direction: row;
   justify-content: center;
   align-items: center;
+  box-shadow: 1px 0px 6px rgba(0, 0, 0, 0.05);
+  z-index: 10;
 }
 
 .btn {

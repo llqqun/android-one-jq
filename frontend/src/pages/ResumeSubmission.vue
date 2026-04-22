@@ -117,22 +117,6 @@
         <div
           class="section-box recruitment-brochure-box"
           v-html="companyInfo?.recruitment_brochure"></div>
-
-        <!-- 测试功能按钮 -->
-        <!-- <div class="section-title">读卡器测试</div>
-        <div class="section-box test-area">
-          <div class="test-buttons">
-            <button class="test-btn" @click="connectDevice">连接设备</button>
-            <button class="test-btn" @click="startAutoRead">开始自动读卡</button>
-            <button class="test-btn" @click="stopAutoRead">停止自动读卡</button>
-            <button class="test-btn" @click="readCard">手动读卡</button>
-            <button class="test-btn" @click="disconnectDevice">断开设备</button>
-            <button class="test-btn" @click="getFirmwareVersion">获取固件版本</button>
-          </div>
-          <div class="test-status" v-if="testStatus">
-            {{ testStatus }}
-          </div>
-        </div> -->
       </div>
       <!-- 右-招聘岗位 -->
       <div class="col right-col">
@@ -205,7 +189,7 @@
           <div class="cv-list">
             <div class="cv-item" v-for="cv in cvList" :key="cv.id">
               <div class="cv-info text-overflow">
-                <div v-if="cv.is_default" class="default-tag">默认</div>
+                <div v-if="cv.is_default === '1'" class="default-tag">默认</div>
                 <div class="cv-name">{{ cv.title }}</div>
               </div>
               <div class="delivery-btn" @click="handleCVDelivery(cv)">投递</div>
@@ -242,6 +226,7 @@ import { cardReaderApi, loginApi } from '../services/api';
 import CircleProgress from '../components/CircleProgress.vue';
 import QrcodeVue from 'qrcode.vue';
 import { showToast } from 'vant'
+import { getDevScreen } from '@/utils/index.js'
 
 const resumeStore = useResumeStore();
 const checkboxValue = ref([]);
@@ -254,6 +239,7 @@ const dialogPopupOptions = ref({
   width: '711px',
   show: false,
 });
+const deviceId = ref(resumeStore.deviceId);
 
 // 卡片信息相关状态
 const cardInfo = ref(null);
@@ -277,10 +263,10 @@ const jobs = ref(null);
 
 // 学生信息
 const studentInfo = ref({
-  student_id: 50579101,
-  student_key: 'a1779b7fb60fa6644d332c7f8b7db6f2',
-  student_no: '222333',
-  user_name: '曹科',
+  student_id: 75047917,
+  student_key: '1dd3c08e2831bebad1d59df9962b4f11',
+  student_no: '123456',
+  user_name: '魏振',
 });
 // 目标职位
 const targetJobs = ref([]);
@@ -307,13 +293,20 @@ const handleStatusMessage = (event) => {
   console.log('收到状态信息:', event.detail);
   // 可以在这里处理状态信息，比如显示toast等
 };
-
-onMounted(() => {
-  // 监听卡片信息事件
-  // window.addEventListener('cardInfoReceived', handleCardInfoReceived)
-  // window.addEventListener('statusMessage', handleStatusMessage)
-
+// 副屏企业登录成功
+const handleSecondaryScreenLoginSuccess = () => {
+  console.log('副屏企业登录成功');
   pageInfo();
+};
+
+onMounted(async () => {
+  // 监听卡片信息事件
+  window.addEventListener('cardInfoReceived', handleCardInfoReceived)
+  window.addEventListener('statusMessage', handleStatusMessage)
+  window.addEventListener('onSecondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess)
+
+  getDevScreen()
+  await pageInfo();
   // 检查是否已有存储的卡片信息
   if (window.cardInfo) {
     console.log('window.cardInfo', window.cardInfo);
@@ -321,7 +314,9 @@ onMounted(() => {
   }
 
   // 获取登录二维码
-  getQRCode();
+  if (companyInfo.value) {
+    getQRCode();
+  }
 });
 
 onUnmounted(() => {
@@ -339,11 +334,23 @@ onUnmounted(() => {
 });
 
 const pageInfo = async () => {
+  if (!deviceId.value) {
+    if (window.android && window.android.getDeviceId) {
+      resumeStore.setDeviceId(window.android.getDeviceId());
+      if (id) {
+        deviceId.value = id;
+        resumeStore.setDeviceId(id);
+        console.log('初始化获取到设备ID:', id);
+      }
+    }
+  }
   const companyLoginInfoStr = localStorage.getItem('companyLoginInfo');
+  console.log('companyLoginInfoStr', companyLoginInfoStr);
   if (companyLoginInfoStr) {
     const companyLoginInfo = JSON.parse(companyLoginInfoStr);
     const res = await loginApi.getCompanyDetail({
-      company_id: companyLoginInfo.company_id,
+      device_id: deviceId.value,
+      company_id: '514661' || companyLoginInfo.company_id,
       school_id: resumeStore.schoolId,
       page: 1,
       page_size: 9999,
@@ -408,7 +415,6 @@ const handleJobClick = (job) => {
     showToast('请先登录');
     return;
   }
-  console.log('点击职位：', job);
   // 存储选中的职位
   targetJobs.value = [job];
   // 打开简历选择弹窗
@@ -420,6 +426,7 @@ const handleCVDelivery = async (cv) => {
     // 准备投递参数
     const jobIds = targetJobs.value.map(job => job.publish_id);
     const response = await loginApi.batchDelivery({
+      device_id: deviceId.value,
       resume_id: cv.resume_id,
       job_ids: jobIds.join(','),
       school_id: schoolId.value,
@@ -428,7 +435,24 @@ const handleCVDelivery = async (cv) => {
     });
     if (response.code === 1) {
       // 投递成功，打开投递成功弹窗
-      openDialog(3);
+      if (response.data.fail_count === 0) {
+        openDialog(3);
+        // 通知副屏更新数据
+        try {
+          if (window.android && window.android.notifySecondaryScreenUpdate) {
+            window.android.notifySecondaryScreenUpdate('resume_delivered');
+            console.log('已通知副屏更新数据');
+          }
+        } catch (notifyError) {
+          console.error('通知副屏失败:', notifyError);
+        }
+      } else {
+        response.data.details.forEach(item => {
+          if (item.status === 'fail') {
+            showToast(item.msg || '投递失败');
+          }
+        })
+      }
     } else {
       // 投递失败，提示用户
       showToast('投递失败：' + response.msg);
@@ -438,13 +462,14 @@ const handleCVDelivery = async (cv) => {
     showToast('投递失败，请稍后重试');
   }
 };
-
+// 弹窗退出登录按钮
 const handleExitLogin = () => {
   if (timeNum.value) {
     clearInterval(timeNum.value);
     timeNum.value = null;
   }
   studentInfo.value = null;
+  getQRCode();
   closeDialog();
   console.log('退出登录');
 };
@@ -456,20 +481,18 @@ const handleContinueDelivery = () => {
 const closeDialog = () => {
   dialogPopupOptions.value.show = false;
 };
+// 选择职位
 const handleJobCheckSelect = (index) => {
-  console.log('点击职位：', index, checkboxValue.value);
   jobs.value[index].isChecked = !jobs.value[index].isChecked;
   const idx = checkboxValue.value.indexOf(index);
-  console.log(idx);
   if (idx > -1) {
     checkboxValue.value.splice(idx, 1);
   } else {
     checkboxValue.value.push(index);
   }
-  console.log('点击职位：', index, checkboxValue.value);
 };
+// 设置选择样式
 const handleCheckboxChange = (val) => {
-  console.log('checkboxValue', val);
   jobs.value.forEach((item, index) => {
     item.isChecked = val.includes(index);
   });
@@ -554,12 +577,15 @@ const startLoginPolling = () => {
     try {
       const response = await loginApi.checkLoginStatus({ uuid: qrUuid.value });
       console.log('检查登录状态响应:', response);
+      // 测试用,写死
+      // response.code = 1;
       if (response.code === 1) {
         // 检查登录状态
+        // 测试用,写死,正确为status为4,登录成功
         if (response.data && response.data.status === 4) {
           // 登录成功
           isStudentLoggedIn.value = true;
-          studentInfo.value = response.data.student_info;
+          // studentInfo.value = response.data.student_info;
           // 停止轮询
           clearInterval(loginPollingTimer.value);
           loginPollingTimer.value = null;
@@ -577,6 +603,7 @@ const handleLoginSuccess = async () => {
   try {
     // 获取学生简历列表
     const response = await loginApi.getStudentResumes({
+      device_id: deviceId.value,
       school_id: schoolId.value,
       student_id: studentInfo.value.student_id,
       student_key: studentInfo.value.student_key
@@ -584,6 +611,7 @@ const handleLoginSuccess = async () => {
     if (response.code === 1) {
       // 存储简历列表
       cvList.value = response.data;
+      console.log('cvList', cvList.value);
       // 打开职位选择弹窗
       openDialog(1);
     }
@@ -598,7 +626,9 @@ const handleStudentLogout = () => {
   // 重新获取二维码
   getQRCode();
 };
-
+const handleHideConsole = () => {
+  window.vconsole.destroy();
+};
 // 测试功能方法
 const connectDevice = async () => {
   if (window.android) {
@@ -689,9 +719,7 @@ const getFirmwareVersion = async () => {
     testStatus.value = 'Android接口不可用';
   }
 };
-const handleHideConsole = () => {
-  window.vconsole.destroy();
-};
+
 </script>
 
 <style lang="scss" scoped>
@@ -704,9 +732,8 @@ const handleHideConsole = () => {
 .headers {
   width: 100%;
   @include flex-fun(row, flex-start, center);
-  padding: 0 20px;
+  padding: 10px 20px 0;
   background-color: #fff;
-  height: 50px;
   flex-shrink: 0;
 }
 
@@ -757,7 +784,6 @@ const handleHideConsole = () => {
   width: 320px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
   margin-right: 10px;
 }
 
@@ -783,7 +809,8 @@ const handleHideConsole = () => {
 
 .second-card {
   flex-grow: 1;
-  padding: 10px 20px;
+  padding: 16px 20px;
+  margin-top: 10px;
 }
 
 .circle-content {
@@ -1506,40 +1533,6 @@ const handleHideConsole = () => {
     &:hover {
       background-color: #0066cc;
     }
-  }
-}
-
-// 测试功能样式
-.test-area {
-  .test-buttons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 15px;
-  }
-
-  .test-btn {
-    background-color: #f0f0f0;
-    border: 1px solid #ddd;
-    padding: 8px 16px;
-    border-radius: 4px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.3s;
-
-    &:hover {
-      background-color: #e0e0e0;
-      border-color: #ccc;
-    }
-  }
-
-  .test-status {
-    margin-top: 10px;
-    padding: 10px;
-    background-color: #f5f5f5;
-    border-radius: 4px;
-    font-size: 14px;
-    color: #333;
   }
 }
 </style>

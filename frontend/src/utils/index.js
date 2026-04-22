@@ -39,3 +39,13 @@ export function encryptPassword(password, publicKey) {
     return { success: false, encryptedPassword: null, error: '加密过程发生错误: ' + e.message };
   }
 }
+
+export function getDevScreen() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const dpr = window.devicePixelRatio;
+  console.log('设备信息::==>', width, height, dpr, window.screen.width, window.screen.height)
+  return {
+    width, height, dpr
+  }
+}

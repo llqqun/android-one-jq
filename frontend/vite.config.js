@@ -14,12 +14,8 @@ export default defineConfig({
     port: 9090,
     proxy: {
       '/machine': {
-        target: 'http://localhost:9084',
-        changeOrigin: true,
-        secure: false
-      },
-      '/api': {
-        target: 'http://localhost:9084',
+        // target: 'http://localhost:9084',
+        target: 'https://yjycs.uat2.bysjy.com.cn',
         changeOrigin: true,
         secure: false
       }

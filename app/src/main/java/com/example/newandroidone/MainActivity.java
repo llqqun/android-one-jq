@@ -13,6 +13,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.ConsoleMessage;
+import android.webkit.SslErrorHandler;
+import android.net.http.SslError;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -90,6 +92,12 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
                 // 页面加载完成后执行
 //                android.util.Log.d("WebView", "页面加载完成: " + url);
                 // Toast.makeText(MainActivity.this, "页面加载完成", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                // 忽略SSL错误，继续加载页面
+                handler.proceed();
             }
         });
 
@@ -269,6 +277,12 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         }
     }
     
+    // 处理副屏登录成功的通知
+    public void onSecondaryScreenLoginSuccess() {
+        // 通知主屏的WebView登录成功
+        webView.evaluateJavascript("javascript:onSecondaryScreenLoginSuccess()", null);
+    }
+    
     // 同步localStorage数据到两个WebView
     private void syncLocalStorageData(String key, String value) {
         // 同步到主屏幕
@@ -327,6 +341,14 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         public void syncLocalStorage(String key, String value) {
             // 同步localStorage数据到两个WebView
             syncLocalStorageData(key, value);
+        }
+        
+        @JavascriptInterface
+        public void notifySecondaryScreenUpdate(String event) {
+            // 通知副屏更新数据
+            if (myPresentation != null) {
+                myPresentation.notifyScreenUpdate(event);
+            }
         }
     }
 }

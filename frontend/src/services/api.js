@@ -1,8 +1,9 @@
 import axios from 'axios'
+import config from '@/utils/config.js'
 
 // 创建axios实例
 const api = axios.create({
-  baseURL: import.meta.env.PROD ? 'https://ynu.bysjy.com.cn' : '', // 基础URL，根据实际情况配置
+  baseURL: import.meta.env.PROD ? config.apiUrl : '',
   timeout: 10000, // 请求超时时间
   headers: {
     'Content-Type': 'application/json'
@@ -44,23 +45,6 @@ api.interceptors.response.use(
   }
 )
 
-// 简历相关API
-export const resumeApi = {
-  // 获取职位分类
-  getPositionCategories: () => api.get('/api/position-categories'),
-  
-  // 获取学生简历列表
-  getStudentResumes: (params) => api.get('/api/student-resumes', { params }),
-  
-  // 获取简历详情
-  getResumeDetail: (id) => api.get(`/api/resumes/${id}`),
-  
-  // 更新简历状态
-  updateResumeStatus: (id, status) => api.put(`/api/resumes/${id}/status`, { status }),
-  
-  // 获取职位列表
-  getJobs: () => api.get('/api/jobs')
-}
 
 // 读卡器相关API
 export const cardReaderApi = {
@@ -117,10 +101,31 @@ export const loginApi = {
    * @param {*} data.school_id 学校ID
    * @param {*} data.publish_id 职位发布ID
    * @param {*} data.type 申请状态：pending(待处理), interested(有意向), unsuitable(不合适), proposed(拟录用)
+   * @param {*} data.keywords 搜索关键词(姓名)
    * 
    * @returns {*} 申请列表数组
    */
   getJobApplyList: (data) => api.get('/machine/company/job_apply_list', { params: data }),
+  
+  /**
+   * 获取职位和待处理的简历数量
+   * @param {*} data 请求参数
+   * @param {*} data.device_id 设备ID
+   * @param {*} data.company_id 企业ID
+   * @param {*} data.school_id 学校ID
+   * 
+   * @returns {*} data
+   */
+  getJobApplyCount: (data) => api.get('/machine/company/fair_job_list', { params: data }),
+  
+  /**
+   * 获取简历详情
+   * @param {*} data 请求参数
+   * @param {*} data.apply_id 简历ID
+   * 
+   * @returns {*} 简历详情
+   */
+  getResumeDetail: (data) => api.get('/machine/company/job_apply_detail', { params: data }),
   
   /**
    * 获取学生简历列表
@@ -144,7 +149,30 @@ export const loginApi = {
    * 
    * @returns {*} 投递结果
    */
-  batchDelivery: (data) => api.post('/machine/resume/batch_delivery', data)
+  batchDelivery: (data) => api.post('/machine/resume/batch_delivery', data),
+
+  /**
+   * 更新简历状态
+   * @param {*} data 请求参数
+   * @param {*} data.apply_ids 简历ID
+   * @param {*} data.company_id 企业ID
+   * @param {*} data.status 状态：pending(待处理), interested(有意向), unsuitable(不合适), proposed(拟录用)
+   * 
+   * @returns {*} 更新结果
+   */
+  updateStatus: (data) => {
+    if (data.status === 'unsuitable') {
+      return api.post('/machine/company/apply_unconsider', data)
+    } else if (data.status === 'interested') {
+      return api.post('/machine/company/apply_pass', data)
+    } else if (
+      data.status === 'proposed'
+    ) {
+      return api.post('/machine/company/apply_intend', data)
+    } else {
+      return Promise.reject('状态错误')
+    }
+  }
 }
 
 export default api

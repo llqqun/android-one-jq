@@ -10,6 +10,8 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.SslErrorHandler;
+import android.net.http.SslError;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -48,6 +50,8 @@ public class MyPresentation extends Presentation {
             webSettings.setDomStorageEnabled(true);
             webSettings.setAllowFileAccess(true);
             webSettings.setAllowContentAccess(true);
+            webSettings.setAllowFileAccessFromFileURLs(true);
+            webSettings.setAllowUniversalAccessFromFileURLs(true);
             webSettings.setUseWideViewPort(true);
             webSettings.setLoadWithOverviewMode(true);
             webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
@@ -113,6 +117,12 @@ public class MyPresentation extends Presentation {
                     } catch (Exception e) {
                         Log.e(TAG, "onReceivedError异常: " + e.getMessage());
                     }
+                }
+
+                @Override
+                public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                    // 忽略SSL错误，继续加载页面
+                    handler.proceed();
                 }
             });
             
@@ -241,6 +251,31 @@ public class MyPresentation extends Presentation {
             webView.evaluateJavascript("javascript:setLocalStorage('" + key + "', '" + value + "')", null);
         }
     }
+    
+    // 同步localStorage数据到副屏
+    private void syncLocalStorageData(String key, String value) {
+        // 同步到副屏
+        if (webView != null) {
+            webView.evaluateJavascript("javascript:setLocalStorage('" + key + "', '" + value + "')", null);
+        }
+    }
+    
+    // 通知主屏登录成功
+    public void notifyMainScreenLoginSuccessFromSecondary() {
+        // 通过回调通知主屏
+        if (getContext() instanceof MainActivity) {
+            MainActivity mainActivity = (MainActivity) getContext();
+            mainActivity.onSecondaryScreenLoginSuccess();
+        }
+    }
+    
+    // 接收主屏的通知并更新数据
+    public void notifyScreenUpdate(String event) {
+        // 通知副屏的WebView更新数据
+        if (webView != null) {
+            webView.evaluateJavascript("javascript:onScreenUpdate('" + event + "')", null);
+        }
+    }
 
     public class JavaScriptInterface {
         @JavascriptInterface
@@ -253,6 +288,18 @@ public class MyPresentation extends Presentation {
         public String getDeviceId() {
             // 返回设备ID（SAMID）
             return deviceId;
+        }
+        
+        @JavascriptInterface
+        public void syncLocalStorage(String key, String value) {
+            // 同步localStorage数据到副屏
+            syncLocalStorageData(key, value);
+        }
+        
+        @JavascriptInterface
+        public void notifyMainScreenLoginSuccess() {
+            // 通知主屏登录成功
+            notifyMainScreenLoginSuccessFromSecondary();
         }
     }
 }

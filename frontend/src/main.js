@@ -11,10 +11,18 @@ window.vconsole = new vconsole()
 // 重写localStorage的setItem方法，实现两个屏幕的数据同步
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(key, value) {
-    originalSetItem.call(this, key, value);
-    // 调用Android原生方法同步数据
-    if (window.android && window.android.syncLocalStorage) {
-        window.android.syncLocalStorage(key, value);
+    try {
+        originalSetItem.call(this, key, value);
+        // 调用Android原生方法同步数据
+        try {
+            if (window.android && window.android.syncLocalStorage) {
+                window.android.syncLocalStorage(key, value);
+            }
+        } catch (error) {
+            console.error('java同步数据失败:', error);
+        }
+    } catch (error) {
+        console.error('localStorage.setItem失败:', error);
     }
 };
 

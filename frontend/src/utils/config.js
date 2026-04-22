@@ -1,0 +1,8 @@
+export default {
+  school_id: 2413,
+  schoolToken: 'yxqqnn2200000006',
+  apiUrl: 'https://yjycs.uat2.bysjy.com.cn'
+  // school_id: 79,
+  // schoolToken: 'yxqqnn0300000001',
+  // apiUrl: 'https://ynu.bysjy.com.cn'
+}
