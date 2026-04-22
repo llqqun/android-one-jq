@@ -1,6 +1,6 @@
 <template>
   <div class="home-container">
-    <div class="img-box">
+    <div class="img-box" @click="handleRoute">
       <img src="../assets/images/home_2.png" class="home-image-logo" alt="logo" />
       <img src="../assets/images/home_3.png" class="home-image-text" alt="text" />
     </div>
@@ -82,23 +82,6 @@ const router = useRouter();
 const screenType = ref('');
 const deviceId = ref('0513201062000003180902854042382');
 
-// 接收设备ID（SAMID）
-window.setDeviceId = function (id) {
-  deviceId.value = id;
-  resumeStore.setDeviceId(id);
-  console.log('获取到设备ID:', id);
-};
-
-// 处理副屏登录成功的回调
-window.onSecondaryScreenLoginSuccess = function () {
-  console.log('副屏登录成功，通知主屏');
-  // 可以在这里添加主屏需要执行的操作
-  // 例如：显示登录成功提示、跳转到指定页面等
-  // 跳转到resumeSubmission页面
-  router.push('/resumeSubmission');
-};
-
-
 // 登录弹窗状态
 const showLoginDialog = ref(false);
 const loginType = ref('password'); // 'password' 或 'qrcode'
@@ -137,12 +120,6 @@ const handleRoute = () => {
     if (screenType.value === 'main') {
       // 主屏跳转到 resumeSubmission
       router.push('/resumeSubmission');
-    } else if (screenType.value === 'secondary') {
-      // 副屏跳转到 cvList
-      router.push('/cvList');
-    } else {
-      // 默认跳转到 cvList
-      router.push('/cvList');
     }
   } else {
     // 如果没有 Android 原生方法，默认跳转到 cvList
@@ -314,8 +291,25 @@ const handleLoginSuccess = async () => {
   }
 
   // 跳转到cvList页面
-  router.push('/cvList')
+  setTimeout(() => {
+    router.push('/cvList');
+  }, 1000);
   // router.push('/resumeSubmission');
+};
+// 处理双屏不能互通的问题
+const localhostChange = () => {
+  let timer = setInterval(() => {
+    try {
+      const companyLoginInfo = localStorage.getItem('companyLoginInfo');
+      if (companyLoginInfo) {
+        clearInterval(timer);
+        timer = null;
+        router.push('/resumeSubmission');
+      }
+    } catch (error) {
+      console.log('111', error)
+    }
+  }, 1500);
 };
 
 onMounted(() => {
@@ -326,7 +320,7 @@ onMounted(() => {
       console.log('初始化获取到设备ID:', id);
     }
   }
-  getDevScreen()
+  getDevScreen();
   if (window.android && window.android.getScreenType) {
     screenType.value = window.android.getScreenType();
     console.log('Screen type:', screenType.value);
@@ -334,8 +328,10 @@ onMounted(() => {
     if (screenType.value === 'secondary') {
       // 副屏显示登录弹窗
       setTimeout(() => {
-        showLoginDialog.value = true
-      }, 3000)
+        showLoginDialog.value = true;
+      }, 3000);
+    } else {
+      localhostChange();
     }
     // else {
     //   // 其他屏幕直接跳转
@@ -344,6 +340,51 @@ onMounted(() => {
     //   }, 3000);
     // }
   }
+
+  // 监听设备ID事件
+  window.addEventListener('deviceIdReceived', (event) => {
+    const id = event.detail;
+    deviceId.value = id;
+    resumeStore.setDeviceId(id);
+    console.log('Home页面收到设备ID:', id);
+  });
+
+  // 监听副屏登录成功事件
+  window.addEventListener('secondaryScreenLoginSuccess', () => {
+    console.log('Home页面收到副屏登录成功通知');
+    // 跳转到resumeSubmission页面
+    try {
+      console.log('准备跳转到resumeSubmission页面');
+      if (router) {
+        router.push('/resumeSubmission');
+        console.log('跳转命令已执行');
+      } else {
+        console.error('router未定义，无法跳转');
+        // 备用方案：使用window.location.href
+        window.location.href = '#/resumeSubmission';
+        console.log('使用备用方案跳转');
+      }
+    } catch (error) {
+      console.error('跳转失败:', error);
+      // 备用方案：使用window.location.href
+      window.location.href = '#/resumeSubmission';
+      console.log('使用备用方案跳转');
+    }
+  });
+
+  // 监听卡片信息事件
+  window.addEventListener('cardInfoReceived', (event) => {
+    const cardInfo = event.detail;
+    console.log('Home页面收到卡片信息:', cardInfo);
+    // 这里可以添加处理卡片信息的逻辑
+  });
+
+  // 监听状态信息事件
+  window.addEventListener('statusMessage', (event) => {
+    const { message, type } = event.detail;
+    console.log('Home页面收到状态信息:', message, type);
+    // 这里可以添加处理状态信息的逻辑
+  });
 });
 
 onUnmounted(() => {

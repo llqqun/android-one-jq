@@ -459,6 +459,7 @@ const getJobApplyList = async () => {
 
 const logout = () => {
   resumeStore.logout();
+  localStorage.setItem('companyLoginInfo', '');
   router.replace('/');
 };
 
@@ -490,6 +491,27 @@ window.onScreenUpdate = function (event) {
 onMounted(async () => {
   getDevScreen();
   await pageInit();
+  
+  // 监听设备ID事件
+  window.addEventListener('deviceIdReceived', (event) => {
+    const id = event.detail;
+    if (resumeStore) {
+      resumeStore.setDeviceId(id);
+    }
+    console.log('CvList页面收到设备ID:', id);
+  });
+  
+  // 监听卡片信息事件
+  window.addEventListener('cardInfoReceived', (event) => {
+    const cardInfo = event.detail;
+    console.log('CvList页面收到卡片信息:', cardInfo);
+  });
+  
+  // 监听状态信息事件
+  window.addEventListener('statusMessage', (event) => {
+    const { message, type } = event.detail;
+    console.log('CvList页面收到状态信息:', message, type);
+  });
 });
 </script>
 

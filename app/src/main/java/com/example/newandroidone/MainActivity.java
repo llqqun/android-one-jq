@@ -90,8 +90,12 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 // 页面加载完成后执行
-//                android.util.Log.d("WebView", "页面加载完成: " + url);
-                // Toast.makeText(MainActivity.this, "页面加载完成", Toast.LENGTH_SHORT).show();
+                // android.util.Log.d("WebView", "页面加载完成: " + url);
+                // 页面加载完成后，如果已经获取到SAMID，传递给webView
+                if (!samId.isEmpty()) {
+                    // android.util.Log.d("WebView", "页面加载完成，传递SAMID: " + samId);
+                    webView.evaluateJavascript("javascript:setDeviceId('" + samId + "')", null);
+                }
             }
 
             @Override
@@ -160,7 +164,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
     // 获取显示设备并初始化双屏显示
     public void updateContents() {
         Display[] displays = mDisplayManager.getDisplays();
-//        android.util.Log.d("MainActivity", "显示设备数量: " + displays.length);
+        // android.util.Log.d("MainActivity", "显示设备数量: " + displays.length);
         
         StringBuilder displayInfo = new StringBuilder();
         displayInfo.append("检测到 " + displays.length + " 个显示设备\n");
@@ -171,50 +175,50 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
             displayInfo.append("名称=" + display.getName() + ", ");
             displayInfo.append("ID=" + display.getDisplayId() + ", ");
             displayInfo.append("尺寸=" + display.getWidth() + "x" + display.getHeight() + "\n");
-//            android.util.Log.d("MainActivity", "屏幕" + i + ": " + display.getName() + ", ID=" + display.getDisplayId() + ", 尺寸=" + display.getWidth() + "x" + display.getHeight());
+            // android.util.Log.d("MainActivity", "屏幕" + i + ": " + display.getName() + ", ID=" + display.getDisplayId() + ", 尺寸=" + display.getWidth() + "x" + display.getHeight());
         }
         
         if (displays.length >= 2) {
-//            android.util.Log.d("MainActivity", "准备在第二个屏幕上显示CvList页面");
+            // android.util.Log.d("MainActivity", "准备在第二个屏幕上显示CvList页面");
             // 只有当myPresentation为null时才创建，避免重复创建
             if (myPresentation == null) {
-//                Toast.makeText(this, displayInfo.toString(), Toast.LENGTH_LONG).show();
-//                Toast.makeText(this, "准备显示第二个屏幕", Toast.LENGTH_SHORT).show();
+                // Toast.makeText(this, displayInfo.toString(), Toast.LENGTH_LONG).show();
+                // Toast.makeText(this, "准备显示第二个屏幕", Toast.LENGTH_SHORT).show();
                 showPresentation(displays[1]);
             }
         } else {
-            android.util.Log.d("MainActivity", "未检测到第二个屏幕，只有一个显示设备");
+            // android.util.Log.d("MainActivity", "未检测到第二个屏幕，只有一个显示设备");
             if (myPresentation != null) {
-                android.util.Log.d("MainActivity", "副屏存在但第二个屏幕已移除，关闭副屏");
+                // android.util.Log.d("MainActivity", "副屏存在但第二个屏幕已移除，关闭副屏");
                 myPresentation.dismiss();
                 myPresentation = null;
             }
-            Toast.makeText(this, "只检测到1个屏幕，双屏功能不可用", Toast.LENGTH_LONG).show();
+            // Toast.makeText(this, "只检测到1个屏幕，双屏功能不可用", Toast.LENGTH_LONG).show();
         }
     }
 
     // 将内容显示到第二个屏幕
     private void showPresentation(Display display) {
         try {
-//            android.util.Log.d("MainActivity", "创建MyPresentation，Display ID: " + display.getDisplayId());
-//            Toast.makeText(this, "正在创建第二个屏幕内容...", Toast.LENGTH_SHORT).show();
+            // android.util.Log.d("MainActivity", "创建MyPresentation，Display ID: " + display.getDisplayId());
+            // Toast.makeText(this, "正在创建第二个屏幕内容...", Toast.LENGTH_SHORT).show();
             
             if (myPresentation == null) {
                 myPresentation = new MyPresentation(this, display);
-//                android.util.Log.d("MainActivity", "MyPresentation实例已创建");
+                // android.util.Log.d("MainActivity", "MyPresentation实例已创建");
             }
             
             if (myPresentation != null) {
                 myPresentation.show();
-//                android.util.Log.d("MainActivity", "MyPresentation.show()调用成功");
-//                Toast.makeText(this, "第二个屏幕已显示CvList页面", Toast.LENGTH_SHORT).show();
+                // android.util.Log.d("MainActivity", "MyPresentation.show()调用成功");
+                // Toast.makeText(this, "第二个屏幕已显示CvList页面", Toast.LENGTH_SHORT).show();
             } else {
-                android.util.Log.e("MainActivity", "MyPresentation实例为null");
-//                Toast.makeText(this, "创建第二个屏幕失败: 实例为null", Toast.LENGTH_LONG).show();
+                // android.util.Log.e("MainActivity", "MyPresentation实例为null");
+                // Toast.makeText(this, "创建第二个屏幕失败: 实例为null", Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
-            android.util.Log.e("MainActivity", "显示第二个屏幕失败: " + e.getMessage());
-            Toast.makeText(this, "显示失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            // android.util.Log.e("MainActivity", "显示第二个屏幕失败: " + e.getMessage());
+            // Toast.makeText(this, "显示失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
             e.printStackTrace();
         }
     }
@@ -225,10 +229,15 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         if (success && message.contains("SAMID: ")) {
             samId = message.substring(7); // 提取SAMID
             // 传递SAMID给webView
+            // android.util.Log.d("MainActivity", "传递SAMID给主屏: " + samId);
             webView.evaluateJavascript("javascript:setDeviceId('" + samId + "')", null);
             // 如果副屏已创建，也传递给副屏
+            // android.util.Log.d("MainActivity", "myPresentation是否为null: " + (myPresentation == null ? "是" : "否"));
             if (myPresentation != null) {
+                // android.util.Log.d("MainActivity", "传递SAMID给副屏: " + samId);
                 myPresentation.setDeviceId(samId);
+            } else {
+                // android.util.Log.e("MainActivity", "副屏未创建，无法传递SAMID");
             }
             // 自动开启自动读卡功能
             cardReaderManager.startAutoRead();
@@ -280,17 +289,71 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
     // 处理副屏登录成功的通知
     public void onSecondaryScreenLoginSuccess() {
         // 通知主屏的WebView登录成功
-        webView.evaluateJavascript("javascript:onSecondaryScreenLoginSuccess()", null);
+        // android.util.Log.d("MainActivity", "收到副屏登录成功通知");
+        // Toast.makeText(this, "收到副屏登录成功通知", Toast.LENGTH_LONG).show();
+        try {
+            if (webView != null) {
+                // Toast.makeText(this, "收到副屏登录成功通知:webView不为空", Toast.LENGTH_LONG).show();
+                webView.evaluateJavascript("javascript:onSecondaryScreenLoginSuccess()", null);
+                // Toast.makeText(this, "收到副屏登录成功通知:通知主屏WebView登录成功完成", Toast.LENGTH_LONG).show();
+            } else {
+                // Toast.makeText(this, "webView为null，无法通知主屏", Toast.LENGTH_LONG).show();
+            }
+        } catch (Exception e) {
+            // android.util.Log.e("MainActivity", "通知主屏WebView失败: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    // 另一种方式：直接修改WebView的URL来实现跳转
+    public void navigateToResumeSubmission() {
+        // android.util.Log.d("MainActivity", "直接跳转到resumeSubmission页面");
+        try {
+            if (webView != null) {
+                // 直接修改WebView的URL来实现跳转
+                webView.loadUrl("file:///android_asset/index.html#/resumeSubmission");
+                // android.util.Log.d("MainActivity", "直接跳转完成");
+            } else {
+                // android.util.Log.e("MainActivity", "webView为null，无法跳转");
+            }
+        } catch (Exception e) {
+            // android.util.Log.e("MainActivity", "直接跳转失败: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
     
     // 同步localStorage数据到两个WebView
     private void syncLocalStorageData(String key, String value) {
-        // 同步到主屏幕
-        webView.evaluateJavascript("javascript:setLocalStorage('" + key + "', '" + value + "')", null);
-        // 同步到副屏
-        if (myPresentation != null) {
-            myPresentation.syncLocalStorage(key, value);
+        try {
+            // 转义特殊字符，确保JavaScript语法正确
+            String escapedKey = escapeJavaScriptString(key);
+            String escapedValue = escapeJavaScriptString(value);
+            
+            // 同步到主屏幕
+            if (webView != null) {
+                webView.evaluateJavascript("javascript:setLocalStorage('" + escapedKey + "', '" + escapedValue + "')", null);
+            }
+            // 同步到副屏
+            if (myPresentation != null) {
+                myPresentation.syncLocalStorage(key, value);
+            }
+        } catch (Exception e) {
+            // android.util.Log.e("MainActivity", "同步localStorage数据失败: " + e.getMessage());
+            e.printStackTrace();
         }
+    }
+    
+    // 转义JavaScript字符串中的特殊字符
+    private String escapeJavaScriptString(String input) {
+        if (input == null) {
+            return "";
+        }
+        return input.replace("'", "\\'")
+                   .replace("\"", "\\\"")
+                   .replace("\\", "\\\\")
+                   .replace("\n", "\\n")
+                   .replace("\r", "\\r")
+                   .replace("\t", "\\t");
     }
 
     public class JavaScriptInterface {

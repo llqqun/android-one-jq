@@ -299,11 +299,32 @@ const handleSecondaryScreenLoginSuccess = () => {
   pageInfo();
 };
 
+// 处理设备ID事件
+const handleDeviceIdReceived = (event) => {
+  const id = event.detail;
+  deviceId.value = id;
+  resumeStore.setDeviceId(id);
+  console.log('ResumeSubmission页面收到设备ID:', id);
+};
+
+// 处理双屏不能互通的问题
+const localhostChange = () => {
+  let timer = setInterval(() => {
+    const companyLoginInfo = localStorage.getItem('companyLoginInfo');
+    if (!companyLoginInfo) {
+      clearInterval(timer);
+      timer = null;
+      router.replace('/');
+    }
+  }, 5000);
+}
+
 onMounted(async () => {
   // 监听卡片信息事件
   window.addEventListener('cardInfoReceived', handleCardInfoReceived)
   window.addEventListener('statusMessage', handleStatusMessage)
-  window.addEventListener('onSecondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess)
+  window.addEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess)
+  window.addEventListener('deviceIdReceived', handleDeviceIdReceived)
 
   getDevScreen()
   await pageInfo();
@@ -323,6 +344,8 @@ onUnmounted(() => {
   // 移除事件监听
   window.removeEventListener('cardInfoReceived', handleCardInfoReceived);
   window.removeEventListener('statusMessage', handleStatusMessage);
+  window.removeEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess);
+  window.removeEventListener('deviceIdReceived', handleDeviceIdReceived);
 
   // 清除定时器
   if (qrCodeTimer.value) {
@@ -334,6 +357,7 @@ onUnmounted(() => {
 });
 
 const pageInfo = async () => {
+  localhostChange();
   if (!deviceId.value) {
     if (window.android && window.android.getDeviceId) {
       resumeStore.setDeviceId(window.android.getDeviceId());

@@ -26,10 +26,7 @@ localStorage.setItem = function(key, value) {
     }
 };
 
-// 添加setLocalStorage方法，用于接收来自Android的数据同步
-window.setLocalStorage = function(key, value) {
-    localStorage.setItem(key, value);
-};
+
 
 const app = createApp(App)
 app.use(Popup);
