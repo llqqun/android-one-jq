@@ -96,8 +96,10 @@ watch(loginType, (newType) => {
 
 // 账号密码登录表单
 const loginForm = ref({
-  username: '15173608575',
-  password: 'Yy147258',
+  username: '',
+  password: '',
+  // username: '15173608575',
+  // password: 'Yy147258',
 });
 const loginLoading = ref(false);
 
