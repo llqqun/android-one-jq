@@ -13,12 +13,7 @@
           <van-icon name="replay" size="24" @click="pageInit" />
         </div>
         <div class="van-search">
-          <input
-            type="text"
-            placeholder="搜索学生"
-            class="van-search__input"
-            @change="handleSearch"
-            v-model="searchText" />
+          <van-search v-model="searchText" placeholder="搜索学生" @search="handleSearch"/>
         </div>
         <img src="../assets/svgs/exit.svg" alt="exit" class="svg-icon" @click="logout" />
       </div>
@@ -305,6 +300,40 @@
       </div>
     </div>
   </div>
+
+  <!-- 标记不合适弹窗 -->
+  <div v-if="showUnsuitableDialog" class="unsuitable-dialog">
+    <div class="dialog-content">
+      <div class="dialog-header">
+        <h3>标记不合适</h3>
+        <span class="close-btn" @click="handleUnsuitableCancel">&times;</span>
+      </div>
+      <div class="dialog-body">
+        <p class="required">*请选择不合适原因并发送给求职者：</p>
+        <div class="select-container">
+          <select v-model="unsuitableReason" class="reason-select">
+            <option value="">请选择不合适原因</option>
+            <option v-for="reason in unsuitableReasons" :key="reason.value" :value="reason.value">
+              {{ reason.label }}
+            </option>
+          </select>
+        </div>
+        <div class="message-container">
+          <p class="message-title">尊敬的求职者：</p>
+          <p class="message-content">
+            非常感谢您对我司的{{ positionName }}感兴趣，您的简历已认真评阅，有诸多出彩的地方。
+            然而由于岗位的一些特别要求，经过与用人部门讨论后仍然觉得匹配性稍显不足，
+            因此，将不再做进一步推荐，希望您能理解。再次感谢您的投递，
+            预祝求职顺利！
+          </p>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="cancel-btn" @click="handleUnsuitableCancel">取消</button>
+        <button class="confirm-btn" @click="handleUnsuitableConfirm">确定</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -335,8 +364,22 @@ const resumeDetail = ref(null);
 const loading = ref(false);
 const companyInfo = ref(null);
 
+// 标记不合适弹窗相关
+const showUnsuitableDialog = ref(false);
+const unsuitableReason = ref('');
+const unsuitableReasons = [
+  { value: 'education', label: '学历不符合要求' },
+  { value: 'experience', label: '工作经验不符合要求' },
+  { value: 'skill', label: '技能不符合要求' },
+  { value: 'other', label: '其他原因' }
+];
+
+// 职位名称
+const positionName = ref('');
+
 const switchCategory = async (category) => {
   currentCategory.value = category;
+  resumeDetail.value = null
   await fetchJobApplyList(category);
 };
 // 获取职位申请简历列表
@@ -368,6 +411,7 @@ const fetchJobApplyList = async (category) => {
 };
 
 const switchTab = async (value) => {
+  resumeDetail.value = null
   activeTab.value = value;
   if (currentCategory.value) {
     await fetchJobApplyList(currentCategory.value);
@@ -388,21 +432,57 @@ const selectResume = async (resume) => {
 };
 
 const handleStatusChange = async (resume, status) => {
-  // 这里可以添加状态更新逻辑
-  console.log('更新简历状态:', resume, status);
+  if (status === 'unsuitable') {
+    // 显示标记不合适弹窗
+    positionName.value = currentCategory.value?.job_name || '';
+    showUnsuitableDialog.value = true;
+  } else {
+    // 直接更新其他状态
+    const res = await loginApi.updateStatus({
+      apply_ids: resume.apply_id,
+      company_id: companyInfo.value.company_id,
+      hr_id: companyLoginInfo.value.hr_id,
+      status,
+    });
+    if (res.code === 1) {
+      showToast('操作成功');
+      await fetchJobApplyList(currentCategory.value);
+
+    } else {
+      showToast(res.msg || '操作失败');
+    }
+  }
+};
+
+// 处理标记不合适确认
+const handleUnsuitableConfirm = async () => {
+  if (!unsuitableReason.value) {
+    showToast('请选择不合适原因');
+    return;
+  }
+  
   const res = await loginApi.updateStatus({
-    apply_ids: resume.apply_id,
+    apply_ids: selectedResume.value.apply_id,
     company_id: companyInfo.value.company_id,
     hr_id: companyLoginInfo.value.hr_id,
-    status,
+    status: 'unsuitable',
+    reason: unsuitableReason.value
   });
+  
   if (res.code === 1) {
     showToast('操作成功');
+    showUnsuitableDialog.value = false;
+    unsuitableReason.value = '';
     await fetchJobApplyList(currentCategory.value);
-
   } else {
     showToast(res.msg || '操作失败');
   }
+};
+
+// 处理标记不合适取消
+const handleUnsuitableCancel = () => {
+  showUnsuitableDialog.value = false;
+  unsuitableReason.value = '';
 };
 // 页面初始化时获取数据
 const pageInit = async () => {
@@ -1328,5 +1408,142 @@ onMounted(async () => {
 
 .retry-btn:hover {
   background-color: #0066cc;
+}
+
+/* 标记不合适弹窗样式 */
+.unsuitable-dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background-color: #ffffff;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333333;
+}
+
+.close-btn {
+  font-size: 20px;
+  color: #999999;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.close-btn:hover {
+  color: #666666;
+}
+
+.dialog-body {
+  padding: 20px;
+}
+
+.required {
+  color: #ff4d4f;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.select-container {
+  margin-bottom: 24px;
+}
+
+.reason-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #333333;
+  outline: none;
+  transition: all 0.3s;
+}
+
+.reason-select:focus {
+  border-color: #0080ff;
+  box-shadow: 0 0 0 2px rgba(0, 128, 255, 0.2);
+}
+
+.message-container {
+  margin-bottom: 24px;
+}
+
+.message-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333333;
+  margin-bottom: 8px;
+}
+
+.message-content {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #666666;
+  margin: 0;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+  gap: 12px;
+}
+
+.cancel-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #666666;
+  background-color: #ffffff;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.cancel-btn:hover {
+  border-color: #0080ff;
+  color: #0080ff;
+}
+
+.confirm-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #ffffff;
+  background-color: #0080ff;
+  border: 1px solid #0080ff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.confirm-btn:hover {
+  background-color: #0066cc;
+  border-color: #0066cc;
 }
 </style>
