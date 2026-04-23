@@ -1,6 +1,6 @@
 <template>
   <div class="home-container">
-    <div class="img-box" @click="handleRoute">
+    <div class="img-box">
       <img src="../assets/images/home_2.png" class="home-image-logo" alt="logo" />
       <img src="../assets/images/home_3.png" class="home-image-text" alt="text" />
     </div>
@@ -80,11 +80,11 @@ const router = useRouter();
 
 // 屏幕类型
 const screenType = ref('');
-const deviceId = ref('0513201062000003180902854042382');
+const deviceId = ref('');
 
 // 登录弹窗状态
 const showLoginDialog = ref(false);
-const loginType = ref('password'); // 'password' 或 'qrcode'
+const loginType = ref('qrcode'); // 'password' 或 'qrcode'
 
 // 监听登录类型变化
 watch(loginType, (newType) => {
@@ -96,10 +96,10 @@ watch(loginType, (newType) => {
 
 // 账号密码登录表单
 const loginForm = ref({
-  username: '',
-  password: '',
-  // username: '15173608575',
-  // password: 'Yy147258',
+  // username: '',
+  // password: '',
+  username: '15173608575',
+  password: 'Yy147258',
 });
 const loginLoading = ref(false);
 
@@ -111,23 +111,6 @@ const loginPollingTimer = ref(null);
 const qrCodeLoading = ref(false);
 const qrCodeError = ref('');
 const qrUuid = ref('');
-
-const handleRoute = () => {
-  // 调用 Android 原生方法获取屏幕类型
-  if (window.android && window.android.getScreenType) {
-    screenType.value = window.android.getScreenType();
-    console.log('Screen type:', screenType.value);
-
-    // 根据屏幕类型跳转到不同页面
-    if (screenType.value === 'main') {
-      // 主屏跳转到 resumeSubmission
-      router.push('/resumeSubmission');
-    }
-  } else {
-    // 如果没有 Android 原生方法，默认跳转到 cvList
-    router.push('/resumeSubmission');
-  }
-};
 
 // 获取HR登录二维码
 const getHRQRCode = async () => {
@@ -225,6 +208,18 @@ const handlePasswordLogin = async () => {
     return;
   }
 
+  // 收起键盘
+  document.activeElement.blur();
+  
+  // 如果是Android设备，尝试调用原生方法收起键盘
+  if (window.android && window.android.hideKeyboard) {
+    try {
+      window.android.hideKeyboard();
+    } catch (error) {
+      console.error('调用hideKeyboard失败:', error);
+    }
+  }
+
   loginLoading.value = true;
 
   try {
@@ -237,9 +232,7 @@ const handlePasswordLogin = async () => {
       user_name: loginForm.value.username,
       password: encryptedPassword,
     };
-    console.log('登录请求数据:', bodyData);
     const response = await loginApi.validateHRLogin(bodyData);
-    console.log('密码登录响应:', response);
     if (response.code === 1) {
       // 存储企业信息
       resumeStore.setCompanyLoginInfo(response.data);
@@ -283,9 +276,18 @@ const handleLoginSuccess = async () => {
   if (screenType.value === 'secondary') {
     // 副屏登录成功，通知主屏
     try {
-      if (window.android && window.android.notifyMainScreenLoginSuccess) {
-        window.android.notifyMainScreenLoginSuccess();
+      if (window.android && window.android.notifyMainScreenUpdate) {
+        // 确保data是字符串格式
+        const loginData = {
+          type: 'loginSuccess',
+          data: resumeStore.companyLoginInfo
+        };
+        const message = JSON.stringify(loginData);
+        console.log('准备发送的消息:', message);
+        window.android.notifyMainScreenUpdate(message);
         console.log('副屏登录成功，已通知主屏');
+      } else {
+        console.error('notifyMainScreenUpdate方法未定义');
       }
     } catch (error) {
       console.error('通知主屏失败:', error);
@@ -295,24 +297,244 @@ const handleLoginSuccess = async () => {
   // 跳转到cvList页面
   setTimeout(() => {
     router.push('/cvList');
-  }, 1000);
-  // router.push('/resumeSubmission');
+  }, 500);
 };
-// 处理双屏不能互通的问题
-const localhostChange = () => {
-  let timer = setInterval(() => {
+
+// 发送消息到另一个屏幕
+const sendMessageToOtherScreen = () => {
+  const message = `测试消息 ${messageId.value++}`;
+  const timestamp = new Date().toLocaleTimeString();
+  
+  // 添加到消息日志
+  messageLog.value.push({
+    time: timestamp,
+    type: 'send',
+    content: message
+  });
+  
+  // 发送消息到另一个屏幕
+  try {
+    if (window.android) {
+      if (screenType.value === 'main') {
+        // 主屏发送消息到副屏
+        if (window.android.notifySecondaryScreenUpdate) {
+          window.android.notifySecondaryScreenUpdate(message);
+          console.log('消息已发送到副屏:', message);
+        } else {
+          console.error('notifySecondaryScreenUpdate方法未定义');
+        }
+      } else if (screenType.value === 'secondary') {
+        // 副屏发送消息到主屏
+        if (window.android.notifyMainScreenUpdate) {
+          window.android.notifyMainScreenUpdate(message);
+          console.log('消息已发送到主屏:', message);
+        } else {
+          console.error('notifyMainScreenUpdate方法未定义');
+        }
+      }
+    } else {
+      console.error('window.android未定义');
+    }
+  } catch (error) {
+    console.error('发送消息失败:', error);
+  }
+};
+
+// 同步数据到另一个屏幕
+const syncDataWithOtherScreen = () => {
+  const syncData = {
+    deviceId: deviceId.value,
+    screenType: screenType.value,
+    timestamp: new Date().toISOString()
+  };
+  
+  const timestamp = new Date().toLocaleTimeString();
+  
+  // 添加到消息日志
+  messageLog.value.push({
+    time: timestamp,
+    type: 'send',
+    content: '同步数据: ' + JSON.stringify(syncData)
+  });
+  
+  // 同步数据
+  try {
+    if (window.android && window.android.syncLocalStorage) {
+      window.android.syncLocalStorage('screenSyncData', JSON.stringify(syncData));
+      console.log('数据已同步到另一个屏幕:', syncData);
+    }
+  } catch (error) {
+    console.error('同步数据失败:', error);
+  }
+};
+
+// 清空消息日志
+const clearMessageLog = () => {
+  messageLog.value = [];
+  console.log('消息日志已清空');
+};
+
+// 处理收到的屏幕交互消息
+const handleScreenUpdate = (message) => {
+  console.log('收到屏幕交互消息:handleScreenUpdate:', message);
+  try {
+    // 尝试修复可能的转义字符问题
+    let cleanedMessage = message;
+    // 替换可能的双重转义
+    cleanedMessage = cleanedMessage.replace(/\\\\/g, '\\');
+    // 解析消息
+    const parsedMessage = JSON.parse(cleanedMessage);
+    console.log('解析后的消息:', parsedMessage);
+    
+    if (parsedMessage.type === 'loginSuccess') {
+      // 处理登录成功消息
+      console.log('收到副屏登录成功消息:', parsedMessage);
+      try {
+        // 存储企业信息到localStorage
+        let companyLoginInfo;
+        if (typeof parsedMessage.data === 'string') {
+          // 尝试解析data字段
+          companyLoginInfo = JSON.parse(parsedMessage.data);
+        } else {
+          // 如果data已经是对象，直接使用
+          companyLoginInfo = parsedMessage.data;
+        }
+        console.log('解析后的企业登录信息:', companyLoginInfo);
+        localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
+        // 存储到store
+        resumeStore.setCompanyLoginInfo(companyLoginInfo);
+        // 跳转到resumeSubmission页面
+        console.log('准备跳转到resumeSubmission页面');
+        if (router) {
+          router.push('/resumeSubmission');
+          console.log('跳转命令已执行');
+        } else {
+          console.error('router未定义，无法跳转');
+          // 备用方案：使用window.location.href
+          window.location.href = '#/resumeSubmission';
+          console.log('使用备用方案跳转');
+        }
+      } catch (dataError) {
+        console.error('解析企业登录信息失败:', dataError);
+        console.error('原始data字段:', parsedMessage.data);
+      }
+    }
+  } catch (error) {
+    console.error('处理屏幕交互消息失败:', error);
+    console.error('原始消息:', message);
+    // 尝试另一种解析方式，处理可能的格式问题
     try {
-      const companyLoginInfo = localStorage.getItem('companyLoginInfo');
-      if (companyLoginInfo) {
-        clearInterval(timer);
-        timer = null;
-        router.push('/resumeSubmission');
+      // 检查是否是登录成功消息的格式
+      if (message.includes('loginSuccess')) {
+        console.log('尝试使用备用方式解析登录成功消息');
+        // 提取企业信息部分
+        const dataStart = message.indexOf('"data":"') + 7;
+        const dataEnd = message.lastIndexOf('"');
+        if (dataStart > 7 && dataEnd > dataStart) {
+          let dataStr = message.substring(dataStart, dataEnd);
+          // 处理转义字符
+          dataStr = dataStr.replace(/\\"/g, '"');
+          dataStr = dataStr.replace(/\\\\/g, '\\');
+          console.log('提取的data字符串:', dataStr);
+          const companyLoginInfo = JSON.parse(dataStr);
+          console.log('解析后的企业登录信息:', companyLoginInfo);
+          localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
+          resumeStore.setCompanyLoginInfo(companyLoginInfo);
+          // 跳转到resumeSubmission页面
+          if (router) {
+            router.push('/resumeSubmission');
+          } else {
+            window.location.href = '#/resumeSubmission';
+          }
+        }
+      }
+    } catch (fallbackError) {
+      console.error('备用解析方式也失败:', fallbackError);
+    }
+  }
+};
+
+// 在全局作用域中定义onScreenUpdate函数，确保原生代码可以调用
+if (typeof window !== 'undefined') {
+  // 立即定义onScreenUpdate函数
+  window.onScreenUpdate = function(message) {
+    console.log('原生调用onScreenUpdateHome:', message);
+    try {
+      // 要解析2次
+      const zhstr = JSON.parse(`"${message}"`);
+      // 解析消息
+      const parsedMessage = JSON.parse(zhstr);
+      console.log('解析后的消息:', parsedMessage);
+      console.log('解析后的消息:', typeof parsedMessage, parsedMessage.type, typeof parsedMessage.data);
+
+      if (parsedMessage.type === 'loginSuccess') {
+        try {
+          // 存储企业信息到localStorage
+          let companyLoginInfo;
+          if (typeof parsedMessage.data === 'string') {
+            // 尝试解析data字段
+            companyLoginInfo = JSON.parse(parsedMessage.data);
+          } else {
+            // 如果data已经是对象，直接使用
+            companyLoginInfo = parsedMessage.data;
+          }
+          console.log('解析后的企业登录信息:', companyLoginInfo);
+          localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
+          // 存储到store
+          resumeStore.setCompanyLoginInfo(companyLoginInfo);
+          // 跳转到resumeSubmission页面
+          console.log('准备跳转到resumeSubmission页面');
+          if (router) {
+            router.push('/resumeSubmission');
+            console.log('跳转命令已执行');
+          } else {
+            console.error('router未定义，无法跳转');
+            // 备用方案：使用window.location.href
+            window.location.href = '#/resumeSubmission';
+            console.log('使用备用方案跳转');
+          }
+        } catch (dataError) {
+          console.error('解析企业登录信息失败:', dataError);
+          console.error('原始data字段:', parsedMessage.data);
+        }
       }
     } catch (error) {
-      console.log('111', error)
+      console.error('处理屏幕交互消息失败:', error);
+      console.error('原始消息:', message);
+      // 尝试另一种解析方式，处理可能的格式问题
+      try {
+        // 检查是否是登录成功消息的格式
+        if (message.includes('loginSuccess')) {
+          console.log('尝试使用备用方式解析登录成功消息');
+          // 提取企业信息部分
+          const dataStart = message.indexOf('"data":"') + 7;
+          const dataEnd = message.lastIndexOf('"');
+          if (dataStart > 7 && dataEnd > dataStart) {
+            let dataStr = message.substring(dataStart, dataEnd);
+            // 处理转义字符
+            dataStr = dataStr.replace(/\"/g, '"');
+            dataStr = dataStr.replace(/\\\\/g, '\\');
+            console.log('提取的data字符串:', dataStr);
+            const companyLoginInfo = JSON.parse(dataStr);
+            console.log('解析后的企业登录信息:', companyLoginInfo);
+            localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
+            resumeStore.setCompanyLoginInfo(companyLoginInfo);
+            // 跳转到resumeSubmission页面
+            if (router) {
+              router.push('/resumeSubmission');
+            } else {
+              window.location.href = '#/resumeSubmission';
+            }
+          }
+        }
+      } catch (fallbackError) {
+        console.error('备用解析方式也失败:', fallbackError);
+      }
     }
-  }, 1500);
-};
+  };
+  
+  console.log('onScreenUpdate函数是否可用:', typeof window.onScreenUpdate === 'function');
+}
 
 onMounted(() => {
   if (window.android && window.android.getDeviceId) {
@@ -331,16 +553,9 @@ onMounted(() => {
       // 副屏显示登录弹窗
       setTimeout(() => {
         showLoginDialog.value = true;
-      }, 3000);
-    } else {
-      localhostChange();
+        getHRQRCode();
+      }, 1500);
     }
-    // else {
-    //   // 其他屏幕直接跳转
-    //   setTimeout(() => {
-    //    handleRoute();
-    //   }, 3000);
-    // }
   }
 
   // 监听设备ID事件
@@ -386,6 +601,13 @@ onMounted(() => {
     const { message, type } = event.detail;
     console.log('Home页面收到状态信息:', message, type);
     // 这里可以添加处理状态信息的逻辑
+  });
+  
+  // 监听屏幕更新事件
+  window.addEventListener('screenUpdate', (event) => {
+    console.log('Home页面收到屏幕更新消息:screenUpdate:', event);
+    const message = event.detail;
+    handleScreenUpdate(message);
   });
 });
 

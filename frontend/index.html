@@ -45,7 +45,7 @@
 
       // 处理副屏登录成功的回调
       window.onSecondaryScreenLoginSuccess = function() {
-        console.log('副屏登录成功，通知主屏');
+        console.log('onSecondaryScreenLoginSuccess副屏登录成功，通知主屏');
         // 触发副屏登录成功事件
         const event = new CustomEvent('secondaryScreenLoginSuccess');
         window.dispatchEvent(event);

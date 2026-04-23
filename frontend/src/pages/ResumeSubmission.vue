@@ -173,7 +173,10 @@
                   </div>
                   <div class="job-info">
                     <div>
-                      <div>招聘人数：{{ job.job_number }} | {{ job.degree_require }} | {{ job.city_name }}</div>
+                      <div>
+                        招聘人数：{{ job.job_number }} | {{ job.degree_require }} |
+                        {{ job.city_name }}
+                      </div>
                       <div>招聘专业：{{ job.about_major }}</div>
                     </div>
                   </div>
@@ -222,13 +225,15 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useResumeStore } from '../store/resume';
+import { useRouter } from 'vue-router';
 import { cardReaderApi, loginApi } from '../services/api';
 import CircleProgress from '../components/CircleProgress.vue';
 import QrcodeVue from 'qrcode.vue';
-import { showToast } from 'vant'
-import { getDevScreen } from '@/utils/index.js'
+import { showToast } from 'vant';
+import { getDevScreen } from '@/utils/index.js';
 
 const resumeStore = useResumeStore();
+const router = useRouter();
 const checkboxValue = ref([]);
 const timer = ref(0);
 const timeNum = ref(null);
@@ -262,30 +267,62 @@ const companyReputation = ref(null);
 const jobs = ref(null);
 
 // 学生信息
-const studentInfo = ref({
-  student_id: 75047917,
-  student_key: '1dd3c08e2831bebad1d59df9962b4f11',
-  student_no: '123456',
-  user_name: '魏振',
-});
+const studentInfo = ref(
+  null,
+  //   {
+  //   student_id: 75047917,
+  //   student_key: '1dd3c08e2831bebad1d59df9962b4f11',
+  //   student_no: '123456',
+  //   user_name: '魏振',
+  // }
+);
 // 目标职位
 const targetJobs = ref([]);
 // 简历列表
 const cvList = ref([
-   {
-      "resume_id": "243438",
-      "title": "我的简历20250920",
-      "percent_complete": "85",
-      "modify_time": "2026-04-02 14:55:55",
-      "is_default": "1",
-      "thumb_url": "https://o.bysjy.com.cn/kzp/template/1626314203-9234.png",
-      "resume_thumb_url": ""
-    }
+  {
+    resume_id: '243438',
+    title: '我的简历20250920',
+    percent_complete: '85',
+    modify_time: '2026-04-02 14:55:55',
+    is_default: '1',
+    thumb_url: 'https://o.bysjy.com.cn/kzp/template/1626314203-9234.png',
+    resume_thumb_url: '',
+  },
 ]);
 
 // 监听卡片信息事件
-const handleCardInfoReceived = (event) => {
+const handleCardInfoReceived = async (event) => {
   console.log('收到卡片信息:', event.detail);
+  const cardInfo = event.detail;
+  if (cardInfo && cardInfo.idNumber) {
+    try {
+      // 调用身份证登录接口
+      const response = await loginApi.loginByIdCard({
+        school_id: '120222199611296435' || schoolId.value,
+        id_card_no: cardInfo.idNumber,
+      });
+      console.log('身份证登录响应:', response);
+      if (response.code === 1) {
+        // 登录成功，更新学生信息
+        studentInfo.value = response.data.student_info;
+        isStudentLoggedIn.value = true;
+        showToast('登录成功');
+        // 停止二维码登录轮询
+        if (loginPollingTimer.value) {
+          clearInterval(loginPollingTimer.value);
+          loginPollingTimer.value = null;
+        }
+        // 登录成功后，拉取数据
+        handleLoginSuccess();
+      } else {
+        showToast('登录失败：' + response.msg);
+      }
+    } catch (error) {
+      console.error('身份证登录失败:', error);
+      showToast('登录失败，请稍后重试');
+    }
+  }
 };
 
 // 监听状态信息事件
@@ -307,26 +344,53 @@ const handleDeviceIdReceived = (event) => {
   console.log('ResumeSubmission页面收到设备ID:', id);
 };
 
-// 处理双屏不能互通的问题
-const localhostChange = () => {
-  let timer = setInterval(() => {
-    const companyLoginInfo = localStorage.getItem('companyLoginInfo');
-    if (!companyLoginInfo) {
-      clearInterval(timer);
-      timer = null;
-      router.replace('/');
+// 处理屏幕更新事件
+const handleScreenUpdate = (message) => {
+  console.log('收到屏幕更新消息:', message);
+  try {
+    // 要解析2次
+    const zhstr = JSON.parse(`"${message}"`);
+    // 解析消息
+    const parsedMessage = JSON.parse(zhstr);
+    if (parsedMessage.type === 'logout') {
+      // 处理退出登录消息
+      console.log('收到退出登录消息');
+      // 清空localStorage内容
+      localStorage.setItem('companyLoginInfo', '');
+      // 跳转到home.vue页面
+      console.log('准备跳转到home页面');
+      if (router) {
+        router.replace('/');
+        console.log('跳转命令已执行');
+      } else {
+        console.error('router未定义，无法跳转');
+        // 备用方案：使用window.location.href
+        window.location.href = '#/';
+        console.log('使用备用方案跳转');
+      }
     }
-  }, 5000);
-}
+  } catch (error) {
+    console.error('处理屏幕更新消息失败:', error);
+  }
+};
 
 onMounted(async () => {
   // 监听卡片信息事件
-  window.addEventListener('cardInfoReceived', handleCardInfoReceived)
-  window.addEventListener('statusMessage', handleStatusMessage)
-  window.addEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess)
-  window.addEventListener('deviceIdReceived', handleDeviceIdReceived)
+  window.addEventListener('cardInfoReceived', handleCardInfoReceived);
+  window.addEventListener('statusMessage', handleStatusMessage);
+  window.addEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess);
+  window.addEventListener('deviceIdReceived', handleDeviceIdReceived);
 
-  getDevScreen()
+  // 在全局作用域中定义onScreenUpdate函数，确保原生代码可以调用
+  if (typeof window !== 'undefined') {
+    window.onScreenUpdate = function (message) {
+      console.log('原生调用onScreenUpdate:', message);
+      // 直接处理消息
+      handleScreenUpdate(message);
+    };
+  }
+
+  getDevScreen();
   await pageInfo();
   // 检查是否已有存储的卡片信息
   if (window.cardInfo) {
@@ -346,6 +410,10 @@ onUnmounted(() => {
   window.removeEventListener('statusMessage', handleStatusMessage);
   window.removeEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess);
   window.removeEventListener('deviceIdReceived', handleDeviceIdReceived);
+  // 移除屏幕更新事件监听
+  window.removeEventListener('screenUpdate', (event) => {
+    handleScreenUpdate(event.detail);
+  });
 
   // 清除定时器
   if (qrCodeTimer.value) {
@@ -357,7 +425,6 @@ onUnmounted(() => {
 });
 
 const pageInfo = async () => {
-  localhostChange();
   if (!deviceId.value) {
     if (window.android && window.android.getDeviceId) {
       resumeStore.setDeviceId(window.android.getDeviceId());
@@ -374,7 +441,7 @@ const pageInfo = async () => {
     const companyLoginInfo = JSON.parse(companyLoginInfoStr);
     const res = await loginApi.getCompanyDetail({
       device_id: deviceId.value,
-      company_id: '514661' || companyLoginInfo.company_id,
+      company_id: companyLoginInfo.company_id,
       school_id: resumeStore.schoolId,
       page: 1,
       page_size: 9999,
@@ -448,14 +515,14 @@ const handleJobClick = (job) => {
 const handleCVDelivery = async (cv) => {
   try {
     // 准备投递参数
-    const jobIds = targetJobs.value.map(job => job.publish_id);
+    const jobIds = targetJobs.value.map((job) => job.publish_id);
     const response = await loginApi.batchDelivery({
       device_id: deviceId.value,
       resume_id: cv.resume_id,
       job_ids: jobIds.join(','),
       school_id: schoolId.value,
       student_id: studentInfo.value.student_id,
-      student_key: studentInfo.value.student_key
+      student_key: studentInfo.value.student_key,
     });
     if (response.code === 1) {
       // 投递成功，打开投递成功弹窗
@@ -471,11 +538,11 @@ const handleCVDelivery = async (cv) => {
           console.error('通知副屏失败:', notifyError);
         }
       } else {
-        response.data.details.forEach(item => {
+        response.data.details.forEach((item) => {
           if (item.status === 'fail') {
             showToast(item.msg || '投递失败');
           }
-        })
+        });
       }
     } else {
       // 投递失败，提示用户
@@ -613,13 +680,13 @@ const startLoginPolling = () => {
           // 停止轮询
           clearInterval(loginPollingTimer.value);
           loginPollingTimer.value = null;
-          handleLoginSuccess()
+          handleLoginSuccess();
         }
       }
     } catch (error) {
       console.error('检查登录状态失败:', error);
     }
-  }, 2000);
+  }, 2000000);
 };
 
 // 登录成功后，拉取数据
@@ -630,7 +697,7 @@ const handleLoginSuccess = async () => {
       device_id: deviceId.value,
       school_id: schoolId.value,
       student_id: studentInfo.value.student_id,
-      student_key: studentInfo.value.student_key
+      student_key: studentInfo.value.student_key,
     });
     if (response.code === 1) {
       // 存储简历列表
@@ -653,97 +720,6 @@ const handleStudentLogout = () => {
 const handleHideConsole = () => {
   window.vconsole.destroy();
 };
-// 测试功能方法
-const connectDevice = async () => {
-  if (window.android) {
-    testStatus.value = '正在连接设备...';
-    try {
-      await cardReaderApi.connectDevice('/dev/ttyS3');
-      testStatus.value = '设备连接成功';
-    } catch (error) {
-      console.error('连接设备失败:', error);
-      testStatus.value = '连接设备失败';
-    }
-  } else {
-    testStatus.value = 'Android接口不可用';
-  }
-};
-
-const disconnectDevice = async () => {
-  if (window.android) {
-    testStatus.value = '正在断开设备...';
-    try {
-      await cardReaderApi.disconnectDevice();
-      testStatus.value = '设备断开成功';
-    } catch (error) {
-      console.error('断开设备失败:', error);
-      testStatus.value = '断开设备失败';
-    }
-  } else {
-    testStatus.value = 'Android接口不可用';
-  }
-};
-
-const readCard = async () => {
-  if (window.android) {
-    testStatus.value = '正在读卡...';
-    try {
-      await cardReaderApi.readCard();
-      // 卡片信息会通过事件回调获取
-    } catch (error) {
-      console.error('读卡失败:', error);
-      testStatus.value = '读卡失败';
-    }
-  } else {
-    testStatus.value = 'Android接口不可用';
-  }
-};
-
-const startAutoRead = async () => {
-  if (window.android) {
-    testStatus.value = '开始自动读卡...';
-    try {
-      await cardReaderApi.startAutoRead();
-      testStatus.value = '自动读卡已启动';
-    } catch (error) {
-      console.error('启动自动读卡失败:', error);
-      testStatus.value = '启动自动读卡失败';
-    }
-  } else {
-    testStatus.value = 'Android接口不可用';
-  }
-};
-
-const stopAutoRead = async () => {
-  if (window.android) {
-    testStatus.value = '停止自动读卡...';
-    try {
-      await cardReaderApi.stopAutoRead();
-      testStatus.value = '自动读卡已停止';
-    } catch (error) {
-      console.error('停止自动读卡失败:', error);
-      testStatus.value = '停止自动读卡失败';
-    }
-  } else {
-    testStatus.value = 'Android接口不可用';
-  }
-};
-
-const getFirmwareVersion = async () => {
-  if (window.android) {
-    testStatus.value = '正在获取固件版本...';
-    try {
-      const version = await cardReaderApi.getFirmwareVersion();
-      testStatus.value = `固件版本: ${version}`;
-    } catch (error) {
-      console.error('获取固件版本失败:', error);
-      testStatus.value = '获取固件版本失败';
-    }
-  } else {
-    testStatus.value = 'Android接口不可用';
-  }
-};
-
 </script>
 
 <style lang="scss" scoped>
@@ -1123,7 +1099,7 @@ const getFirmwareVersion = async () => {
   flex-basis: 38%;
   flex-grow: 1;
   flex-shrink: 1;
- }
+}
 
 .section-title {
   font-size: 16px;

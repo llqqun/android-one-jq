@@ -9,20 +9,41 @@ android {
     defaultConfig {
         applicationId "com.example.newandroidone"
         minSdk 21
-        targetSdk 33
-        versionCode 1
-        versionName "1.0"
+        targetSdk 30
+        versionCode 3
+        versionName "1.3"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         
-        // 只支持arm架构，让模拟器使用arm兼容模式
+        // 支持多种架构，提高兼容性
         ndk {
-            abiFilters "armeabi-v7a", "arm64-v8a"
+            abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+        }
+    }
+
+    signingConfigs {
+        debug {
+            storeFile file('keys0')
+            storePassword '123456'
+            keyAlias 'key0'
+            keyPassword '123456'
+        }
+        release {
+            storeFile file('keys0')
+            storePassword '123456'
+            keyAlias 'key0'
+            keyPassword '123456'
         }
     }
 
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
@@ -37,6 +58,42 @@ android {
         main {
             jniLibs.srcDirs = ['libs', 'src/main/jniLibs']
         }
+    }
+
+    // 禁用APK拆分
+    splits {
+        abi {
+            enable false
+        }
+        density {
+            enable false
+        }
+    }
+
+    // 确保所有架构的native库都包含在一个APK中
+    packagingOptions {
+        pickFirst '**/*.so'
+        merge '**/lib/**'
+    }
+
+    // 确保APK是一个单一的文件
+    bundle {
+        language {
+            enableSplit = false
+        }
+        density {
+            enableSplit = false
+        }
+        abi {
+            enableSplit = false
+        }
+    }
+
+    applicationVariants.all {
+        variant ->
+            variant.outputs.all {
+                outputFileName = "yyqt-${defaultConfig.versionName}.apk"
+            }
     }
 }
 

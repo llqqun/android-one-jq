@@ -8,6 +8,10 @@
         <div class="company-name">{{ companyInfo?.company_name }}</div>
       </div>
       <div class="header-right">
+        <!-- 页面数据刷新按钮 -->
+        <div>
+          <van-icon name="replay" size="24" @click="pageInit" />
+        </div>
         <div class="van-search">
           <input
             type="text"
@@ -458,6 +462,19 @@ const getJobApplyList = async () => {
 };
 
 const logout = () => {
+  // 发送消息给主屏
+  try {
+    if (window.android && window.android.notifyMainScreenUpdate) {
+      window.android.notifyMainScreenUpdate(JSON.stringify({type: 'logout'}));
+      console.log('已发送退出登录消息给主屏');
+    } else {
+      console.error('notifyMainScreenUpdate方法未定义');
+    }
+  } catch (error) {
+    console.error('发送退出登录消息失败:', error);
+  }
+  
+  // 执行退出登录操作
   resumeStore.logout();
   localStorage.setItem('companyLoginInfo', '');
   router.replace('/');

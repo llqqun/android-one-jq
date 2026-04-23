@@ -16,6 +16,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.webkit.JavascriptInterface;
+import android.view.inputmethod.InputMethodManager;
 import android.app.Activity;
 
 public class MyPresentation extends Presentation {
@@ -369,7 +370,27 @@ public class MyPresentation extends Presentation {
     public void notifyScreenUpdate(String event) {
         // 通知副屏的WebView更新数据
         if (webView != null) {
-            webView.evaluateJavascript("javascript:onScreenUpdate('" + event + "')", null);
+            // 转义特殊字符，确保JavaScript语法正确
+            String escapedEvent = escapeJavaScriptString(event);
+            final String jsCode = "javascript:onScreenUpdate('" + escapedEvent + "')";
+            
+            // 检查webView是否可用
+            if (webView != null) {
+                // 在主线程上执行WebView操作
+                if (mainActivity != null) {
+                    mainActivity.runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                // 执行JavaScript代码
+                                webView.evaluateJavascript(jsCode, null);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                }
+            }
         }
     }
 
@@ -398,6 +419,24 @@ public class MyPresentation extends Presentation {
             // 通知主屏登录成功
             // Log.d(TAG, "JavaScript调用notifyMainScreenLoginSuccess");
             notifyMainScreenLoginSuccessFromSecondary();
+        }
+
+                @JavascriptInterface
+        public void hideKeyboard() {
+            // 收起键盘
+            InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.hideSoftInputFromWindow(webView.getWindowToken(), 0);
+            }
+        }
+        
+        @JavascriptInterface
+        public void notifyMainScreenUpdate(final String event) {
+            // 通知主屏更新数据
+            if (mainActivity != null) {
+                // 调用MainActivity的方法来发送消息到主屏
+                mainActivity.notifyMainScreenUpdateFromSecondary(event);
+            }
         }
     }
 }

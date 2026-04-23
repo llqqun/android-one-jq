@@ -79,6 +79,8 @@ export const loginApi = {
   getHRQRCode: (params) => api.get('/machine/login/get_qr_hr', { params }),
   // 轮询检查HR扫码状态
   checkHRLoginStatus: (params) => api.get('/machine/login/check_hr', { params }),
+  // 身份证登录
+  loginByIdCard: (data) => api.post('/machine/login/login_by_id_card', data),
   /**
    * 获取企业详情及职位信息
    * @param {*} data 企业账号密码登录响应数据
