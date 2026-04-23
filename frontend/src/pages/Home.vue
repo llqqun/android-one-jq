@@ -32,7 +32,7 @@
 
         <!-- 账号密码登录 -->
         <div v-if="loginType === 'password'" class="login-form">
-          <van-field v-model="loginForm.username" label="用户名" placeholder="请输入用户名" />
+          <van-field v-model="loginForm.username" label="手机号" placeholder="请输入手机号" />
           <van-field
             v-model="loginForm.password"
             label="密码"
@@ -96,10 +96,10 @@ watch(loginType, (newType) => {
 
 // 账号密码登录表单
 const loginForm = ref({
-  // username: '',
-  // password: '',
-  username: '15173608575',
-  password: 'Yy147258',
+  username: '',
+  password: '',
+  // username: '15173608575',
+  // password: 'Yy147258',
 });
 const loginLoading = ref(false);
 
@@ -298,80 +298,6 @@ const handleLoginSuccess = async () => {
   setTimeout(() => {
     router.push('/cvList');
   }, 500);
-};
-
-// 发送消息到另一个屏幕
-const sendMessageToOtherScreen = () => {
-  const message = `测试消息 ${messageId.value++}`;
-  const timestamp = new Date().toLocaleTimeString();
-  
-  // 添加到消息日志
-  messageLog.value.push({
-    time: timestamp,
-    type: 'send',
-    content: message
-  });
-  
-  // 发送消息到另一个屏幕
-  try {
-    if (window.android) {
-      if (screenType.value === 'main') {
-        // 主屏发送消息到副屏
-        if (window.android.notifySecondaryScreenUpdate) {
-          window.android.notifySecondaryScreenUpdate(message);
-          console.log('消息已发送到副屏:', message);
-        } else {
-          console.error('notifySecondaryScreenUpdate方法未定义');
-        }
-      } else if (screenType.value === 'secondary') {
-        // 副屏发送消息到主屏
-        if (window.android.notifyMainScreenUpdate) {
-          window.android.notifyMainScreenUpdate(message);
-          console.log('消息已发送到主屏:', message);
-        } else {
-          console.error('notifyMainScreenUpdate方法未定义');
-        }
-      }
-    } else {
-      console.error('window.android未定义');
-    }
-  } catch (error) {
-    console.error('发送消息失败:', error);
-  }
-};
-
-// 同步数据到另一个屏幕
-const syncDataWithOtherScreen = () => {
-  const syncData = {
-    deviceId: deviceId.value,
-    screenType: screenType.value,
-    timestamp: new Date().toISOString()
-  };
-  
-  const timestamp = new Date().toLocaleTimeString();
-  
-  // 添加到消息日志
-  messageLog.value.push({
-    time: timestamp,
-    type: 'send',
-    content: '同步数据: ' + JSON.stringify(syncData)
-  });
-  
-  // 同步数据
-  try {
-    if (window.android && window.android.syncLocalStorage) {
-      window.android.syncLocalStorage('screenSyncData', JSON.stringify(syncData));
-      console.log('数据已同步到另一个屏幕:', syncData);
-    }
-  } catch (error) {
-    console.error('同步数据失败:', error);
-  }
-};
-
-// 清空消息日志
-const clearMessageLog = () => {
-  messageLog.value = [];
-  console.log('消息日志已清空');
 };
 
 // 处理收到的屏幕交互消息

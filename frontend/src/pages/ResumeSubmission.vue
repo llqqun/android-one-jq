@@ -668,11 +668,8 @@ const startLoginPolling = () => {
     try {
       const response = await loginApi.checkLoginStatus({ uuid: qrUuid.value });
       console.log('检查登录状态响应:', response);
-      // 测试用,写死
-      // response.code = 1;
       if (response.code === 1) {
         // 检查登录状态
-        // 测试用,写死,正确为status为4,登录成功
         if (response.data && response.data.status === 4) {
           // 登录成功
           isStudentLoggedIn.value = true;
