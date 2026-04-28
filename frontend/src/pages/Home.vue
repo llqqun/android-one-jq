@@ -95,11 +95,12 @@ watch(loginType, (newType) => {
 });
 
 // 账号密码登录表单
+// 测试用账号密码
 const loginForm = ref({
-  username: '',
-  password: '',
-  // username: '15173608575',
-  // password: 'Yy147258',
+  // username: '',
+  // password: '',
+  username: '15173608575',
+  password: 'Yy147258',
 });
 const loginLoading = ref(false);
 
@@ -479,6 +480,7 @@ onMounted(() => {
       // 副屏显示登录弹窗
       setTimeout(() => {
         showLoginDialog.value = true;
+        // 测试
         getHRQRCode();
       }, 1500);
     }

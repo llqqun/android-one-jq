@@ -7,7 +7,7 @@ export const useResumeStore = defineStore('resume', {
     schoolId: config.school_id,
     companyLoginInfo: null,
     deviceId: '',
-    // deviceId: '0513201062000003180902854042382',
+    // deviceId: '05132017062000003180902854042382',
   }),
   getters: {
   },

@@ -49,11 +49,37 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
 
         webView = findViewById(R.id.webView);
         WebSettings webSettings = webView.getSettings();
+        
+        // 启用JavaScript
         webSettings.setJavaScriptEnabled(true);
+        
+        // 启用DOM存储（localStorage等）
         webSettings.setDomStorageEnabled(true);
-        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        
+        // 设置缓存模式
+        webSettings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        
+        // 允许文件访问
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
+        
+        // 启用JavaScript接口（用于Android与JS通信）
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        
+        // 设置WebView支持HTML5 History API
+        webSettings.setSupportMultipleWindows(false);
+        
+        // 设置User-Agent
+        webSettings.setUserAgentString(webSettings.getUserAgentString() + " AndroidOneApp");
+        
+        // 设置WebView使用宽视口
+        webSettings.setUseWideViewPort(true);
+        webSettings.setLoadWithOverviewMode(true);
+        
+        // 启用缩放功能（可选）
+        // webSettings.setSupportZoom(true);
+        // webSettings.setBuiltInZoomControls(true);
+        // webSettings.setDisplayZoomControls(false);
         
         // 增加版本兼容性检查
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
@@ -64,7 +90,11 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         // 适配不同Android版本的WebView设置
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
             webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            webSettings.setEnableSmoothTransition(true);
         }
+        
+        // 设置WebView渲染优先级
+        webSettings.setRenderPriority(WebSettings.RenderPriority.HIGH);
 
         webView.addJavascriptInterface(new JavaScriptInterface(), "android");
 
@@ -192,8 +222,8 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
             android.util.Log.d("MainActivity", "准备在第二个屏幕上显示CvList页面");
             // 只有当myPresentation为null时才创建，避免重复创建
             if (myPresentation == null) {
-                Toast.makeText(this, displayInfo.toString(), Toast.LENGTH_LONG).show();
-                Toast.makeText(this, "准备显示第二个屏幕", Toast.LENGTH_SHORT).show();
+                // Toast.makeText(this, displayInfo.toString(), Toast.LENGTH_LONG).show();
+                // Toast.makeText(this, "准备显示第二个屏幕", Toast.LENGTH_SHORT).show();
                 showPresentation(displays[1]);
             } else {
                 android.util.Log.d("MainActivity", "myPresentation已存在，不需要重新创建");
@@ -205,7 +235,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
                 myPresentation.dismiss();
                 myPresentation = null;
             }
-            Toast.makeText(this, "只检测到1个屏幕，双屏功能不可用", Toast.LENGTH_LONG).show();
+            // Toast.makeText(this, "只检测到1个屏幕，双屏功能不可用", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -474,31 +504,31 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
                 @Override
                 public void run() {
                     try {
-                        Toast.makeText(MainActivity.this, "开始发送消息到主屏", Toast.LENGTH_SHORT).show();
+                        // Toast.makeText(MainActivity.this, "开始发送消息到主屏", Toast.LENGTH_SHORT).show();
                         if (webView != null) {
-                            Toast.makeText(MainActivity.this, "主屏WebView已初始化，正在发送消息", Toast.LENGTH_SHORT).show();
+                            // Toast.makeText(MainActivity.this, "主屏WebView已初始化，正在发送消息", Toast.LENGTH_SHORT).show();
                             // 转义特殊字符，确保JavaScript语法正确
                             String escapedEvent = escapeJavaScriptString(event);
                             final String jsCode = "javascript:onScreenUpdate('" + escapedEvent + "')";
-                            Toast.makeText(MainActivity.this, "执行JavaScript: " + jsCode, Toast.LENGTH_SHORT).show();
+                            // Toast.makeText(MainActivity.this, "执行JavaScript: " + jsCode, Toast.LENGTH_SHORT).show();
                             
                             // 执行JavaScript代码
                             webView.evaluateJavascript(jsCode, new android.webkit.ValueCallback<String>() {
                                 @Override
                                 public void onReceiveValue(String value) {
                                     if (value != null && !value.equals("null")) {
-                                        Toast.makeText(MainActivity.this, "JavaScript执行结果: " + value, Toast.LENGTH_SHORT).show();
+                                        // Toast.makeText(MainActivity.this, "JavaScript执行结果: " + value, Toast.LENGTH_SHORT).show();
                                     } else {
-                                        Toast.makeText(MainActivity.this, "JavaScript执行成功", Toast.LENGTH_SHORT).show();
+                                        // Toast.makeText(MainActivity.this, "JavaScript执行成功", Toast.LENGTH_SHORT).show();
                                     }
                                 }
                             });
-                            Toast.makeText(MainActivity.this, "消息发送完成", Toast.LENGTH_SHORT).show();
+                            // Toast.makeText(MainActivity.this, "消息发送完成", Toast.LENGTH_SHORT).show();
                         } else {
-                            Toast.makeText(MainActivity.this, "主屏WebView未初始化，无法发送消息", Toast.LENGTH_SHORT).show();
+                            // Toast.makeText(MainActivity.this, "主屏WebView未初始化，无法发送消息", Toast.LENGTH_SHORT).show();
                         }
                     } catch (Exception e) {
-                        Toast.makeText(MainActivity.this, "发送消息时出错: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                        // Toast.makeText(MainActivity.this, "发送消息时出错: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                         e.printStackTrace();
                     }
                 }

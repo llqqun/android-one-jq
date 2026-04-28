@@ -139,3 +139,35 @@
   -webkit-transition: $property $duration $ease;
   -moz-transition: $property $duration $ease;
 }
+
+// 字体大小控制
+
+// 字体大小变量
+$font-sizes: (
+  xs: 12px,
+  sm: 14px,
+  base: 16px,
+  lg: 18px,
+  xl: 20px,
+  xxl: 24px,
+  xxxl: 30px,
+  xxxxl: 36px
+);
+
+// 字体大小混入
+@mixin font-size($size) {
+  font-size: map-get($font-sizes, $size);
+}
+
+// 响应式字体大小
+@mixin responsive-font-size($size) {
+  font-size: map-get($font-sizes, $size);
+  
+  @include respond-to('mobile') {
+    font-size: map-get($font-sizes, $size) * 0.9;
+  }
+  
+  @include respond-to('desktop') {
+    font-size: map-get($font-sizes, $size) * 1.1;
+  }
+}

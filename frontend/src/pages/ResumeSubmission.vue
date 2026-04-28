@@ -31,7 +31,7 @@
             <div class="detail-item">
               <span class="label">单位规模：</span><span>{{ companyInfo?.scale || '' }}</span>
             </div>
-            <div class="detail-item">
+            <div v-if="companyInfo?.address" class="detail-item">
               <span class="label">单位地址：</span>
               <span>{{ companyInfo?.address || '' }}</span>
             </div>
@@ -60,29 +60,16 @@
         <!-- 第二个卡片：二维码 -->
         <div class="card second-card">
           <!-- 登录成功状态 -->
-          <div v-if="isStudentLoggedIn" class="login-success">
+          <div v-if="studentInfo" class="login-success">
             <div class="success-icon">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                style="color: #4caf50">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-              </svg>
+              <img src="@/assets/svgs/student.svg" class="img" alt="sm" />
             </div>
             <div class="success-text">学生已登录</div>
             <div class="logout-btn" @click="handleStudentLogout">退出登录</div>
           </div>
 
           <!-- 二维码状态 -->
-          <div v-else>
+          <div v-else class="qr-container">
             <div class="qr-placeholder">
               <div class="qr-box" @click="getQRCode">
                 <div class="corner-left-top"></div>
@@ -122,9 +109,9 @@
       <div class="col right-col">
         <div class="section-title">招聘职位</div>
         <div class="section-list-box">
-          <div class="job-item" v-for="(job, idx) in jobs" :key="idx" @click="handleJobClick(job)">
+          <div class="job-item" v-for="(job, idx) in jobs" :key="idx">
             <div class="job-title">
-              <div class="text-overflow">{{ job.job_name }}</div>
+              <div class="text-overflow name">{{ job.job_name }}</div>
               <div class="job-salary">{{ job.salary }}</div>
             </div>
             <div class="job-info">
@@ -134,7 +121,7 @@
                 </div>
                 <div>招聘专业：{{ job.about_major }}</div>
               </div>
-              <div class="apply-btn">投递简历</div>
+              <div class="apply-btn" @click="handleJobClick(job)">投递简历</div>
             </div>
           </div>
         </div>
@@ -255,7 +242,6 @@ const qrCodeUrl = ref('');
 const qrCodeExpireTime = ref(0);
 const qrCodeTimer = ref(null);
 const loginPollingTimer = ref(null);
-const isStudentLoggedIn = ref(false);
 const qrCodeLoading = ref(false);
 const qrCodeError = ref('');
 const qrUuid = ref('');
@@ -270,26 +256,16 @@ const jobs = ref(null);
 const studentInfo = ref(
   null,
   //   {
-  //   student_id: 75047917,
-  //   student_key: '1dd3c08e2831bebad1d59df9962b4f11',
-  //   student_no: '123456',
-  //   user_name: '魏振',
+  //   student_id: 80475410,
+  //   student_key: '24c103b1e98fcbb7133019c0a697f009',
+  //   student_no: '20220152069',
+  //   user_name: '李建国',
   // }
 );
 // 目标职位
 const targetJobs = ref([]);
 // 简历列表
-const cvList = ref([
-  {
-    resume_id: '243438',
-    title: '我的简历20250920',
-    percent_complete: '85',
-    modify_time: '2026-04-02 14:55:55',
-    is_default: '1',
-    thumb_url: 'https://o.bysjy.com.cn/kzp/template/1626314203-9234.png',
-    resume_thumb_url: '',
-  },
-]);
+const cvList = ref([]);
 
 // 监听卡片信息事件
 const handleCardInfoReceived = async (event) => {
@@ -299,14 +275,13 @@ const handleCardInfoReceived = async (event) => {
     try {
       // 调用身份证登录接口
       const response = await loginApi.loginByIdCard({
-        school_id: '120222199611296435' || schoolId.value,
+        school_id: schoolId.value || 2413,
         id_card_no: cardInfo.idNumber,
       });
       console.log('身份证登录响应:', response);
       if (response.code === 1) {
         // 登录成功，更新学生信息
         studentInfo.value = response.data.student_info;
-        isStudentLoggedIn.value = true;
         showToast('登录成功');
         // 停止二维码登录轮询
         if (loginPollingTimer.value) {
@@ -325,11 +300,6 @@ const handleCardInfoReceived = async (event) => {
   }
 };
 
-// 监听状态信息事件
-const handleStatusMessage = (event) => {
-  console.log('收到状态信息:', event.detail);
-  // 可以在这里处理状态信息，比如显示toast等
-};
 // 副屏企业登录成功
 const handleSecondaryScreenLoginSuccess = () => {
   console.log('副屏企业登录成功');
@@ -377,7 +347,6 @@ const handleScreenUpdate = (message) => {
 onMounted(async () => {
   // 监听卡片信息事件
   window.addEventListener('cardInfoReceived', handleCardInfoReceived);
-  window.addEventListener('statusMessage', handleStatusMessage);
   window.addEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess);
   window.addEventListener('deviceIdReceived', handleDeviceIdReceived);
 
@@ -391,6 +360,8 @@ onMounted(async () => {
   }
 
   getDevScreen();
+  // 测试
+  // handleCardInfoReceived({ detail: { idNumber: '610523200003221541' } });
   await pageInfo();
   // 检查是否已有存储的卡片信息
   if (window.cardInfo) {
@@ -407,7 +378,6 @@ onMounted(async () => {
 onUnmounted(() => {
   // 移除事件监听
   window.removeEventListener('cardInfoReceived', handleCardInfoReceived);
-  window.removeEventListener('statusMessage', handleStatusMessage);
   window.removeEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess);
   window.removeEventListener('deviceIdReceived', handleDeviceIdReceived);
   // 移除屏幕更新事件监听
@@ -427,7 +397,8 @@ onUnmounted(() => {
 const pageInfo = async () => {
   if (!deviceId.value) {
     if (window.android && window.android.getDeviceId) {
-      resumeStore.setDeviceId(window.android.getDeviceId());
+      const id = window.android.getDeviceId();
+      resumeStore.setDeviceId(id);
       if (id) {
         deviceId.value = id;
         resumeStore.setDeviceId(id);
@@ -524,8 +495,9 @@ const handleCVDelivery = async (cv) => {
       student_id: studentInfo.value.student_id,
       student_key: studentInfo.value.student_key,
     });
+    // 测试
+    // openDialog(3);
     if (response.code === 1) {
-      // 投递成功，打开投递成功弹窗
       if (response.data.fail_count === 0) {
         openDialog(3);
         // 通知副屏更新数据
@@ -604,11 +576,6 @@ const deliveryFun = () => {
   openDialog(2);
 };
 
-// 确认卡片信息
-const handleConfirmCardInfo = () => {
-  console.log('确认卡片信息:', cardInfo.value);
-};
-
 // 获取登录二维码
 const getQRCode = async () => {
   qrCodeLoading.value = true;
@@ -672,8 +639,7 @@ const startLoginPolling = () => {
         // 检查登录状态
         if (response.data && response.data.status === 4) {
           // 登录成功
-          isStudentLoggedIn.value = true;
-          // studentInfo.value = response.data.student_info;
+          studentInfo.value = response.data.student_info;
           // 停止轮询
           clearInterval(loginPollingTimer.value);
           loginPollingTimer.value = null;
@@ -683,7 +649,7 @@ const startLoginPolling = () => {
     } catch (error) {
       console.error('检查登录状态失败:', error);
     }
-  }, 2000000);
+  }, 2000);
 };
 
 // 登录成功后，拉取数据
@@ -700,6 +666,9 @@ const handleLoginSuccess = async () => {
       // 存储简历列表
       cvList.value = response.data;
       console.log('cvList', cvList.value);
+      if (jobs.value.length === 0) {
+        return;
+      }
       // 打开职位选择弹窗
       openDialog(1);
     }
@@ -710,7 +679,7 @@ const handleLoginSuccess = async () => {
 
 // 处理学生退出登录
 const handleStudentLogout = () => {
-  isStudentLoggedIn.value = false;
+  studentInfo.value = null;
   // 重新获取二维码
   getQRCode();
 };
@@ -729,23 +698,29 @@ const handleHideConsole = () => {
 .headers {
   width: 100%;
   @include flex-fun(row, flex-start, center);
-  padding: 10px 20px 0;
+  padding: 0px 20px 0;
   background-color: #fff;
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 
 .company-logo {
+  width: 60px;
+  height: 60px;
+  padding-top: 5px;
+  overflow: hidden;
   .logo-image {
-    width: auto;
-    max-width: 150px;
-    max-height: 60px;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 }
 
 .company-name {
-  font-size: 16px;
+  @include font-size(xl);
   position: relative;
   padding-left: 48px;
+  font-weight: 700;
 }
 
 .company-name::before {
@@ -764,7 +739,7 @@ const handleHideConsole = () => {
   flex: 1;
   box-sizing: border-box;
   @include flex-fun(row, flex-start, stretch);
-  padding: 12px 15px;
+  padding: 10px 15px;
 }
 
 .col {
@@ -778,10 +753,106 @@ const handleHideConsole = () => {
 .left-col {
   background: none;
   border: none;
-  width: 320px;
+  width: 450px;
   display: flex;
   flex-direction: column;
   margin-right: 10px;
+  flex-shrink: 0;
+
+  .first-card {
+    padding: 10px 20px;
+    .info-title {
+      @include font-size(xxl);
+      font-weight: 700;
+      color: #161c2b;
+      text-align: center;
+      line-height: 1.3;
+    }
+    .company-details {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      .detail-item {
+        display: flex;
+        flex-direction: row;
+        align-items: flex-start;
+        @include font-size(lg);
+        color: #555555;
+        line-height: 1.4;
+        word-wrap: break-word;
+        margin-top: 10px;
+      }
+      .detail-item:first-child {
+        margin-top: 0;
+      }
+    }
+    .circle-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      margin-top: -12px;
+    }
+    .rating-img {
+      width: 100%;
+      height: 40px;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+    }
+    .rating-value {
+      font-size: 34px;
+      font-weight: 600;
+      color: #e98f36;
+    }
+    .rating-text {
+      @include font-size(base);
+      color: #555555;
+    }
+    .rating-desc {
+      @include font-size(base);
+      color: #555555;
+      text-align: center;
+    }
+  }
+  .second-card {
+    flex-grow: 1;
+    padding: 10px 20px 0;
+    margin-top: 10px;
+  }
+  .qr-container {
+    height: 100%;
+    @include flex-fun(column, center, center);
+  }
+  .tip-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    .tip-img {
+      width: 42px;
+      height: 42px;
+      background-color: #0080ff;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #a8b4c7;
+      font-size: 0;
+    }
+
+    .tip-img .img {
+      width: 26px;
+      height: 26px;
+    }
+
+    .tip-text {
+      @include font-size(base);
+      color: #666;
+    }
+  }
 }
 
 .card {
@@ -792,10 +863,6 @@ const handleHideConsole = () => {
   box-sizing: border-box;
 }
 
-.first-card {
-  padding: 14px 20px;
-}
-
 .circle-wrap {
   display: flex;
   justify-content: center;
@@ -804,49 +871,9 @@ const handleHideConsole = () => {
   margin-bottom: -50px;
 }
 
-.second-card {
-  flex-grow: 1;
-  padding: 16px 20px;
-  margin-top: 10px;
-}
-
-.circle-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  margin-top: -12px;
-}
-
-.rating-img {
-  width: 100%;
-  height: 40px;
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  align-items: center;
-}
-
 .svg {
   width: 40px;
   height: 100%;
-}
-
-.rating-value {
-  font-size: 32px;
-  font-weight: 600;
-  color: #e98f36;
-}
-
-.rating-text {
-  font-size: 12px;
-  color: #555555;
-}
-
-.rating-desc {
-  font-size: 12px;
-  color: #555555;
-  text-align: center;
 }
 
 .highlight {
@@ -857,49 +884,21 @@ const handleHideConsole = () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px dashed #eeeeee;
-}
-
-.info-logo {
-  width: 48px;
-  height: 48px;
-  border: 1px solid #eeeeee;
-  overflow: hidden;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 14px;
-  .logo-image {
-    width: 100%;
+  .info-logo {
+    width: 60px;
+    height: 60px;
+    border: 1px solid #eeeeee;
+    overflow: hidden;
+    border-radius: 50%;
+    margin-bottom: 10px;
+    @include font-size(base);
+    @include flex-fun(row, flex-start, center);
+    .logo-image {
+      width: 100%;
+    }
   }
-}
-
-.info-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #161c2b;
-  text-align: center;
-  line-height: 1.3;
-}
-
-.company-details {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  font-size: 13px;
-  color: #555555;
-  line-height: 1.4;
-  word-wrap: break-word;
 }
 
 .label {
@@ -912,21 +911,21 @@ const handleHideConsole = () => {
   justify-content: center;
   background-color: #e2f1ff;
   border-radius: 6px;
-  width: 160px;
-  height: 160px;
+  width: 150px;
+  height: 150px;
   margin: 0 auto;
   align-items: center;
 }
 
 .qr-box {
-  width: 140px;
-  height: 140px;
+  width: 130px;
+  height: 130px;
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   color: #a8b4c7;
-  font-size: 12px;
+  @include font-size(sm);
   background-color: #fff;
   overflow: hidden;
 }
@@ -975,36 +974,6 @@ const handleHideConsole = () => {
   border-right-width: 2px;
 }
 
-.tip-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.tip-img {
-  width: 40px;
-  height: 40px;
-  background-color: #0080ff;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #a8b4c7;
-  font-size: 0;
-}
-
-.tip-img .img {
-  width: 24px;
-  height: 24px;
-}
-
-.tip-text {
-  font-size: 12px;
-  color: #666;
-}
-
 .expire-time {
   font-size: 11px;
   color: #999;
@@ -1026,7 +995,7 @@ const handleHideConsole = () => {
 }
 
 .success-text {
-  font-size: 16px;
+  @include font-size(lg);
   font-weight: 600;
   color: #333;
   margin-bottom: 20px;
@@ -1037,7 +1006,7 @@ const handleHideConsole = () => {
   color: #ffffff;
   padding: 8px 24px;
   border-radius: 4px;
-  font-size: 14px;
+  @include font-size(base);
   cursor: pointer;
   transition: background-color 0.3s;
 }
@@ -1075,12 +1044,12 @@ const handleHideConsole = () => {
 }
 
 .loading-text {
-  font-size: 12px;
+  @include font-size(sm);
   color: #666;
 }
 
 .error-text {
-  font-size: 12px;
+  @include font-size(sm);
   color: #ff4d4f;
   text-align: center;
   padding: 20px;
@@ -1099,13 +1068,11 @@ const handleHideConsole = () => {
 }
 
 .section-title {
-  font-size: 16px;
+  @include font-size(lg);
   font-weight: 600;
   margin-bottom: 16px;
-  background-color: #f7fbff;
-  height: 28px;
-  line-height: 28px;
-  padding: 0 26px;
+  background-color: #daecff;
+  padding: 5px 26px;
   position: relative;
 }
 
@@ -1129,13 +1096,17 @@ const handleHideConsole = () => {
   white-space: pre-wrap;
 
   &.introduction-box {
-    height: 300px;
+    height: 38vh;
     overflow-y: auto;
+    padding-top: 0;
+    padding-bottom: 0;
   }
   &.recruitment-brochure-box {
-    height: 260px;
+    height: 32vh;
     overflow-y: auto;
     margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
   }
 }
 
@@ -1156,21 +1127,49 @@ const handleHideConsole = () => {
   border-radius: 8px;
   padding: 14px;
   margin-top: 16px;
-  background-color: #f7fbff;
+  background-color: #deedff;
   .check-sele {
     padding-right: 8px;
   }
-}
-
-.job-title {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  min-width: 0;
-  font-weight: 600;
-  color: #333333;
-  margin-bottom: 6px;
+  &:first-child {
+    margin-top: 0;
+  }
+  .job-title {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    min-width: 0;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 6px;
+    .name {
+      @include font-size(xl);
+    }
+  }
+  .job-salary {
+    flex-shrink: 0;
+    @include font-size(lg);
+    color: #1171ff;
+    font-weight: 600;
+  }
+  .job-info {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    @include font-size(lg);
+    color: #555555;
+  }
+  .apply-btn {
+    background-color: #0080ff;
+    color: #fff;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 4px;
+    @include font-size(lg);
+    flex-shrink: 0;
+  }
 }
 
 .text-overflow {
@@ -1183,39 +1182,13 @@ const handleHideConsole = () => {
   display: inline-block;
 }
 
-.job-salary {
-  flex-shrink: 0;
-  font-size: 14px;
-  color: #1171ff;
-  font-weight: 600;
-}
-
-.job-info {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 14px;
-  color: #555555;
-}
-
-.apply-btn {
-  background-color: #0080ff;
-  color: #fff;
-  border: none;
-  padding: 14px 20px;
-  border-radius: 4px;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
 .dialog-content {
   max-height: 92vh;
   min-height: 200px;
 
   .dialog-title {
     @include flex-fun(row, space-between, center);
-    font-size: 16px;
+    @include font-size(lg);
     font-weight: 600;
     padding: 10px;
     border-bottom: 1px solid #eeeeee;
@@ -1226,8 +1199,8 @@ const handleHideConsole = () => {
     }
 
     .svg-icon {
-      width: 16px;
-      height: 16px;
+      width: 26px;
+      height: 26px;
     }
   }
 
@@ -1247,7 +1220,7 @@ const handleHideConsole = () => {
     border: 1px solid #e2f1ff;
     border-radius: 8px;
     padding: 14px;
-    background-color: #f7fbff;
+    background-color: #deedff;
     width: 100%;
     box-sizing: border-box;
     @include flex-fun(row, flex-start);
@@ -1268,7 +1241,7 @@ const handleHideConsole = () => {
 
     .job-title {
       @include flex-fun(row, space-between, center);
-      font-size: 14px;
+      @include font-size(base);
       font-weight: 600;
       color: #333333;
       margin-bottom: 6px;
@@ -1284,7 +1257,7 @@ const handleHideConsole = () => {
 
       .job-salary {
         flex-shrink: 0;
-        font-size: 12px;
+        @include font-size(sm);
         color: #1171ff;
         font-weight: 600;
       }
@@ -1292,7 +1265,7 @@ const handleHideConsole = () => {
 
     .job-info {
       @include flex-fun(row, space-between, center);
-      font-size: 12px;
+      @include font-size(sm);
       color: #555555;
 
       .apply-btn {
@@ -1301,7 +1274,7 @@ const handleHideConsole = () => {
         border: none;
         padding: 6px 12px;
         border-radius: 4px;
-        font-size: 12px;
+        @include font-size(sm);
       }
     }
   }
@@ -1328,20 +1301,20 @@ const handleHideConsole = () => {
   .default-tag {
     background-color: #0080ff;
     color: #fff;
-    font-size: 12px;
+    @include font-size(sm);
     padding: 2px 8px;
     border-radius: 4px;
   }
 
   .cv-name {
-    font-size: 14px;
+    @include font-size(base);
     color: #333333;
   }
 
   .delivery-btn {
     background-color: #0080ff;
     color: #fff;
-    font-size: 14px;
+    @include font-size(base);
     padding: 10px 24px;
     border-radius: 4px;
   }
@@ -1366,13 +1339,13 @@ const handleHideConsole = () => {
   }
 
   .success-text {
-    font-size: 16px;
+    @include font-size(lg);
     color: #0080ff;
     font-weight: 600;
   }
 
   .tip-text {
-    font-size: 14px;
+    @include font-size(base);
     line-height: 1.4;
   }
 
@@ -1388,7 +1361,7 @@ const handleHideConsole = () => {
       background-color: #ffffff;
       color: #333333;
       border: 1px solid #dddddd;
-      font-size: 14px;
+      @include font-size(base);
       padding: 10px 24px;
       border-radius: 4px;
       margin-right: 12px;
@@ -1397,7 +1370,7 @@ const handleHideConsole = () => {
     .btn-continue {
       background-color: #0080ff;
       color: #fff;
-      font-size: 14px;
+      @include font-size(base);
       padding: 10px 24px;
       border-radius: 4px;
     }
@@ -1415,7 +1388,7 @@ const handleHideConsole = () => {
     border: none;
     padding: 10px 16px;
     border-radius: 4px;
-    font-size: 16px;
+    @include font-size(lg);
   }
 }
 
@@ -1427,7 +1400,7 @@ const handleHideConsole = () => {
 
   .dialog-title {
     @include flex-fun(row, space-between, center);
-    font-size: 16px;
+    @include font-size(lg);
     font-weight: 600;
     padding: 10px;
     border-bottom: 1px solid #eeeeee;
@@ -1464,7 +1437,7 @@ const handleHideConsole = () => {
     border: 1px solid #e2f1ff;
     border-radius: 8px;
     overflow: hidden;
-    background-color: #f7fbff;
+    background-color: #deedff;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1492,7 +1465,7 @@ const handleHideConsole = () => {
   .info-row {
     display: flex;
     align-items: flex-start;
-    font-size: 14px;
+    @include font-size(base);
     line-height: 1.5;
   }
 
@@ -1523,7 +1496,7 @@ const handleHideConsole = () => {
     border: none;
     padding: 10px 30px;
     border-radius: 4px;
-    font-size: 14px;
+    @include font-size(base);
     cursor: pointer;
     transition: background-color 0.3s;
 

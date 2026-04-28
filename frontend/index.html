@@ -2,55 +2,41 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Android 应用前端</title>
   </head>
   <body>
     <script>
-      // 全局卡片信息存储
       window.cardInfo = null;
-      // 添加setLocalStorage方法，用于接收来自Android的数据同步
       window.setLocalStorage = function (key, value) {
         localStorage.setItem(key, value);
       };
 
-      // 处理卡片信息并打印到控制台
       function showIdCardInfo(cardInfo) {
-        console.log('读取到卡片信息:', cardInfo);
-        // 存储卡片信息到全局变量
+        console.log('index.html:读取到卡片信息:', cardInfo);
         window.cardInfo = cardInfo;
-        // 触发自定义事件，通知Vue应用
         const event = new CustomEvent('cardInfoReceived', { detail: cardInfo });
         window.dispatchEvent(event);
       }
 
-      // 处理状态信息
       function showStatus(message, type) {
-        console.log('状态信息:', { message, type });
-        // 触发状态事件
+        console.log('index.html:状态信息:', { message, type });
         const event = new CustomEvent('statusMessage', { detail: { message, type } });
         window.dispatchEvent(event);
       }
 
-      // 处理设备ID（SAMID）
       function setDeviceId(id) {
-        console.log('获取到设备ID:', id);
-        // 存储设备ID到全局变量
+        console.log('index.html:获取到设备ID:', id);
         window.deviceId = id;
-        // 触发设备ID事件
         const event = new CustomEvent('deviceIdReceived', { detail: id });
         window.dispatchEvent(event);
       }
 
-      // 处理副屏登录成功的回调
       window.onSecondaryScreenLoginSuccess = function() {
-        console.log('onSecondaryScreenLoginSuccess副屏登录成功，通知主屏');
-        // 触发副屏登录成功事件
+        console.log('index.html:onSecondaryScreenLoginSuccess副屏登录成功，通知主屏');
         const event = new CustomEvent('secondaryScreenLoginSuccess');
         window.dispatchEvent(event);
         console.log('副屏登录成功事件已触发');
-        // 直接尝试跳转到resumeSubmission页面
         console.log('尝试直接跳转到resumeSubmission页面');
         window.location.href = '#/resumeSubmission';
         console.log('直接跳转命令已执行');

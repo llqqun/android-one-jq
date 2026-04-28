@@ -1,9 +1,8 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { viteSingleFile } from "vite-plugin-singlefile"
-// https://vitejs.dev/config/
+
 export default defineConfig({
-  plugins: [vue(), viteSingleFile()],
+  plugins: [vue()],
   base: './',
   resolve: {
     alias: {
@@ -14,8 +13,7 @@ export default defineConfig({
     port: 9090,
     proxy: {
       '/machine': {
-        // target: 'http://localhost:9084',
-        target: 'https://yjycs.uat2.bysjy.com.cn',
+        target: 'http://localhost:9084',
         changeOrigin: true,
         secure: false
       }
@@ -25,6 +23,13 @@ export default defineConfig({
     outDir: '../app/src/main/assets',
     assetsDir: 'static',
     emptyOutDir: true,
-    target: 'es2015'
+    target: 'es2015',
+    minify: 'terser',
+    rollupOptions: {
+      output: {
+        format: 'umd',
+        name: 'AndroidOneApp'
+      }
+    }
   }
 })
