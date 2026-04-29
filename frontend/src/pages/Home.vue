@@ -459,17 +459,11 @@ const handleScreenUpdate = (message) => {
 const handleQRCodeData = (data) => {
   console.log('处理二维码数据:', data);
   qrCodeData.value = data;
-  showToast('二维码识别成功');
 };
 
 // 处理二维码连接状态
 const handleQRCodeConnected = (success) => {
   console.log('二维码设备连接状态:', success);
-  if (success) {
-    showToast('二维码设备连接成功');
-  } else {
-    showToast('二维码设备连接失败');
-  }
 };
 
 onMounted(() => {
