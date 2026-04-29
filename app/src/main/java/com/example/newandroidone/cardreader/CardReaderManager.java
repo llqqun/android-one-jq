@@ -13,6 +13,7 @@ import com.zkteco.android.IDReader.WLTService;
 import com.zkteco.android.biometric.core.device.ParameterHelper;
 import com.zkteco.android.biometric.core.device.TransportType;
 import com.zkteco.android.biometric.core.utils.LogHelper;
+import com.zkteco.android.biometric.core.utils.ToolUtils;
 import com.zkteco.android.biometric.module.idcard.IDCardReader;
 import com.zkteco.android.biometric.module.idcard.IDCardReaderFactory;
 import com.zkteco.android.biometric.module.idcard.IDCardType;
@@ -41,7 +42,7 @@ public class CardReaderManager {
     private CardReaderCallback callback;
     private Handler mainHandler;
     private AutoReadThread autoReadThread;
-    
+
     // 日志相关
     private File logFile;
     private FileWriter logWriter;
@@ -49,6 +50,7 @@ public class CardReaderManager {
 
     /**
      * 构造函数，初始化读卡器管理器
+     * 
      * @param context Android上下文
      */
     public CardReaderManager(Context context) {
@@ -67,8 +69,9 @@ public class CardReaderManager {
             if (!logDir.exists()) {
                 logDir.mkdirs();
             }
-            
-            String logFileName = "cardreader_log_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date()) + ".txt";
+
+            String logFileName = "cardreader_log_"
+                    + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date()) + ".txt";
             logFile = new File(logDir, logFileName);
             logWriter = new FileWriter(logFile, true);
             writeLog("=== 读卡器日志文件初始化完成 ===");
@@ -80,6 +83,7 @@ public class CardReaderManager {
 
     /**
      * 写入日志
+     * 
      * @param message 日志消息
      */
     private void writeLog(String message) {
@@ -96,6 +100,7 @@ public class CardReaderManager {
 
     /**
      * 调试日志，同时输出到Logcat和日志文件
+     * 
      * @param message 日志消息
      */
     private void logDebug(String message) {
@@ -105,8 +110,9 @@ public class CardReaderManager {
 
     /**
      * 错误日志，同时输出到Logcat和日志文件
+     * 
      * @param message 错误消息
-     * @param e 异常对象
+     * @param e       异常对象
      */
     private void logError(String message, Throwable e) {
         Log.e(TAG, message, e);
@@ -123,6 +129,7 @@ public class CardReaderManager {
 
     /**
      * 获取日志文件路径
+     * 
      * @return 日志文件路径
      */
     public String getLogFilePath() {
@@ -134,6 +141,7 @@ public class CardReaderManager {
 
     /**
      * 获取日志内容
+     * 
      * @return 日志内容
      */
     public String getLogContent() {
@@ -176,6 +184,7 @@ public class CardReaderManager {
 
     /**
      * 设置回调接口
+     * 
      * @param callback 回调接口
      */
     public void setCallback(CardReaderCallback callback) {
@@ -184,6 +193,7 @@ public class CardReaderManager {
 
     /**
      * 设置串口名称
+     * 
      * @param serialName 串口名称
      */
     public void setSerialName(String serialName) {
@@ -192,6 +202,7 @@ public class CardReaderManager {
 
     /**
      * 检查设备是否已连接
+     * 
      * @return 是否已连接
      */
     public boolean isConnected() {
@@ -374,7 +385,7 @@ public class CardReaderManager {
                 logDebug("  地址: " + idCardInfo.getAddress());
                 logDebug("  照片长度: " + idCardInfo.getPhotolength());
                 logDebug("  通信耗时: " + nTickCommuUsed + "ms");
-                
+
                 CardInfo cardInfo = new CardInfo();
                 cardInfo.setName(idCardInfo.getName());
                 cardInfo.setSex(idCardInfo.getSex());
@@ -395,6 +406,9 @@ public class CardReaderManager {
                     }
                 }
 
+                // 读取身份证物理卡号（HEX）
+                // readIDCardSnrHex(cardInfo);
+
                 final long commuTime = nTickCommuUsed;
                 mainHandler.post(new Runnable() {
                     @Override
@@ -414,7 +428,7 @@ public class CardReaderManager {
                 logDebug("  证件号: " + idprpCardInfo.getId());
                 logDebug("  有效期: " + idprpCardInfo.getValidityTime());
                 logDebug("  照片长度: " + idprpCardInfo.getPhotolength());
-                
+
                 CardInfo cardInfo = new CardInfo();
                 cardInfo.setName(idprpCardInfo.getCnName());
                 cardInfo.setSex(idprpCardInfo.getSex());
@@ -432,6 +446,9 @@ public class CardReaderManager {
                     }
                 }
 
+                // 读取身份证物理卡号（HEX）
+                // readIDCardSnrHex(cardInfo);
+
                 mainHandler.post(new Runnable() {
                     @Override
                     public void run() {
@@ -442,14 +459,28 @@ public class CardReaderManager {
                 });
             }
         } else {
-            mainHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    if (callback != null) {
-                        callback.onCardReadFail("读卡失败：不支持的卡片类型");
+            // 身份证读取失败，尝试读取普通IC卡物理卡号
+            CardInfo icCardInfo = new CardInfo();
+            if (readICSnrHex(icCardInfo)) {
+                logDebug("读取到普通IC卡");
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (callback != null) {
+                            callback.onCardReadSuccess(icCardInfo);
+                        }
                     }
-                }
-            });
+                });
+            } else {
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (callback != null) {
+                            callback.onCardReadFail("读卡失败：不支持的卡片类型");
+                        }
+                    }
+                });
+            }
         }
     }
 
@@ -519,6 +550,7 @@ public class CardReaderManager {
 
     /**
      * 将字节数组转换为字符串（去除末尾的0）
+     * 
      * @param stringBytes 字节数组
      * @return 转换后的字符串
      */
@@ -534,7 +566,61 @@ public class CardReaderManager {
     }
 
     /**
+     * 读取身份证物理卡号（HEX格式）
+     * 
+     * @param cardInfo 卡片信息对象
+     */
+    private void readIDCardSnrHex(CardInfo cardInfo) {
+        if (!bStarted || idCardReader == null) {
+            return;
+        }
+        byte mode = 0x26;
+        byte halt = 0x0;
+        byte[] idsnrBuf = new byte[64];
+        try {
+            boolean ret = idCardReader.MF_GET_NIDCardNum(0, mode, halt, idsnrBuf);
+            if (ret) {
+                String snrHex = ToolUtils.bytesToHexString(idsnrBuf, 0, 8);
+                cardInfo.setSnrHex(snrHex);
+                logDebug("身份证物理卡号（HEX）: " + snrHex);
+            } else {
+                logDebug("读取身份证物理卡号失败");
+            }
+        } catch (IDCardReaderException e) {
+            logDebug("读取身份证物理卡号异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 读取普通IC卡物理卡号（HEX格式）
+     * 
+     * @param cardInfo 卡片信息对象
+     * @return 是否读取成功
+     */
+    private boolean readICSnrHex(CardInfo cardInfo) {
+        if (!bStarted || idCardReader == null) {
+            return false;
+        }
+        byte mode = 0x26;
+        byte halt = 0x0;
+        try {
+            String snrHex = idCardReader.MF_GET_SNR_HEX(0, mode, halt);
+            if (snrHex != null && !snrHex.isEmpty()) {
+                cardInfo.setSnrHex(snrHex);
+                // 写死类型6,sdk提供的类型中没有这个类型
+                cardInfo.setCardType(6);
+                logDebug("普通IC卡物理卡号（HEX）: " + snrHex);
+                return true;
+            }
+        } catch (IDCardReaderException e) {
+            logDebug("读取普通IC卡物理卡号异常: " + e.getMessage());
+        }
+        return false;
+    }
+
+    /**
      * 将Bitmap转换为Base64编码
+     * 
      * @param bitmap 位图对象
      * @return Base64编码字符串
      */
@@ -581,6 +667,7 @@ public class CardReaderManager {
 
     /**
      * 检查是否正在自动读卡
+     * 
      * @return 是否正在自动读卡
      */
     public boolean isAutoReading() {
@@ -606,6 +693,25 @@ public class CardReaderManager {
                     } catch (IDCardReaderException e) {
                         // 寻卡失败，继续循环
                         logDebug("自动读卡 - 寻卡失败，继续尝试: " + e.getMessage());
+                        try {
+                            logDebug("自动读卡 - 读取普通IC卡");
+                            // 寻卡失败，尝试读取普通IC卡物理卡号
+                            CardInfo icCardInfo = new CardInfo();
+                            if (readICSnrHex(icCardInfo)) {
+                                logDebug("自动读卡 - 读取到普通IC卡");
+                                final CardInfo finalIcCardInfo = icCardInfo;
+                                mainHandler.post(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        if (callback != null && autoReading) {
+                                            callback.onCardReadSuccess(finalIcCardInfo);
+                                        }
+                                    }
+                                });
+                            }
+                        } catch (Exception e1) {
+                            logDebug("读取普通IC卡失败: " + e1.getMessage());
+                        }
                     }
 
                     if (findCardSuccess) {
@@ -614,7 +720,7 @@ public class CardReaderManager {
                             logDebug("自动读卡 - 尝试选卡...");
                             idCardReader.selectCard(0);
                             logDebug("自动读卡 - 选卡成功");
-                            
+
                             // 读卡
                             logDebug("自动读卡 - 尝试读取卡片数据...");
                             int cardType = idCardReader.readCardEx(0, 0);
@@ -634,7 +740,7 @@ public class CardReaderManager {
                                     logDebug("  有效期: " + idCardInfo.getValidityTime());
                                     logDebug("  地址: " + idCardInfo.getAddress());
                                     logDebug("  照片长度: " + idCardInfo.getPhotolength());
-                                    
+
                                     CardInfo cardInfo = new CardInfo();
                                     cardInfo.setName(idCardInfo.getName());
                                     cardInfo.setSex(idCardInfo.getSex());
@@ -654,6 +760,9 @@ public class CardReaderManager {
                                         }
                                     }
 
+                                    // 读取身份证物理卡号（HEX）
+                                    readIDCardSnrHex(cardInfo);
+
                                     final CardInfo finalCardInfo = cardInfo;
                                     mainHandler.post(new Runnable() {
                                         @Override
@@ -668,16 +777,18 @@ public class CardReaderManager {
                                     logDebug("自动读卡 - 读取到PRP卡片信息:");
                                     logDebug("  姓名: " + idprpCardInfo.getCnName());
                                     logDebug("  性别: " + idprpCardInfo.getSex());
-                                    logDebug("  国籍: " + idprpCardInfo.getCountry() + "/" + idprpCardInfo.getCountryCode());
+                                    logDebug("  国籍: " + idprpCardInfo.getCountry() + "/"
+                                            + idprpCardInfo.getCountryCode());
                                     logDebug("  出生日期: " + idprpCardInfo.getBirth());
                                     logDebug("  证件号: " + idprpCardInfo.getId());
                                     logDebug("  有效期: " + idprpCardInfo.getValidityTime());
                                     logDebug("  照片长度: " + idprpCardInfo.getPhotolength());
-                                    
+
                                     CardInfo cardInfo = new CardInfo();
                                     cardInfo.setName(idprpCardInfo.getCnName());
                                     cardInfo.setSex(idprpCardInfo.getSex());
-                                    cardInfo.setNation(idprpCardInfo.getCountry() + "/" + idprpCardInfo.getCountryCode());
+                                    cardInfo.setNation(
+                                            idprpCardInfo.getCountry() + "/" + idprpCardInfo.getCountryCode());
                                     cardInfo.setBirth(idprpCardInfo.getBirth());
                                     cardInfo.setIdNumber(idprpCardInfo.getId());
                                     cardInfo.setValidity(idprpCardInfo.getValidityTime());
@@ -691,6 +802,9 @@ public class CardReaderManager {
                                             logDebug("自动读卡 - PRP卡片照片转换成功");
                                         }
                                     }
+
+                                    // 读取身份证物理卡号（HEX）
+                                    // readIDCardSnrHex(cardInfo);
 
                                     final CardInfo finalCardInfo = cardInfo;
                                     mainHandler.post(new Runnable() {
@@ -728,6 +842,7 @@ public class CardReaderManager {
 
     /**
      * 获取卡片类型名称
+     * 
      * @param cardType 卡片类型代码
      * @return 卡片类型名称
      */

@@ -14,6 +14,7 @@ public class CardInfo {
     private String validity;  // 有效期
     private String photoBase64; // 照片Base64编码
     private int cardType;     // 卡片类型
+    private String snrHex;    // IC卡物理卡号（HEX格式）
 
     /**
      * 默认构造函数
@@ -179,5 +180,21 @@ public class CardInfo {
      */
     public void setCardType(int cardType) {
         this.cardType = cardType;
+    }
+
+    /**
+     * 获取IC卡物理卡号（HEX格式）
+     * @return IC卡物理卡号
+     */
+    public String getSnrHex() {
+        return snrHex;
+    }
+
+    /**
+     * 设置IC卡物理卡号（HEX格式）
+     * @param snrHex IC卡物理卡号
+     */
+    public void setSnrHex(String snrHex) {
+        this.snrHex = snrHex;
     }
 }

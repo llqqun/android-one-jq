@@ -45,29 +45,6 @@ api.interceptors.response.use(
   }
 )
 
-
-// 读卡器相关API
-export const cardReaderApi = {
-  // 连接设备
-  connectDevice: (port) => api.post('/api/card-reader/connect', { port }),
-  
-  // 断开设备
-  disconnectDevice: () => api.post('/api/card-reader/disconnect'),
-  
-  // 读取卡片
-  readCard: () => api.post('/api/card-reader/read'),
-  
-  // 开始自动读卡
-  startAutoRead: () => api.post('/api/card-reader/auto-read/start'),
-  
-  // 停止自动读卡
-  stopAutoRead: () => api.post('/api/card-reader/auto-read/stop'),
-  
-  // 获取固件版本
-  getFirmwareVersion: () => api.get('/api/card-reader/firmware-version')
-}
-
-// 登录相关API
 export const loginApi = {
   // 获取学生登录二维码
   getQRCode: (params) => api.get('/machine/login/get_qr', { params }),

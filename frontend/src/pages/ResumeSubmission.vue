@@ -213,7 +213,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useResumeStore } from '../store/resume';
 import { useRouter } from 'vue-router';
-import { cardReaderApi, loginApi } from '../services/api';
+import { loginApi } from '../services/api';
 import CircleProgress from '../components/CircleProgress.vue';
 import QrcodeVue from 'qrcode.vue';
 import { showToast } from 'vant';
