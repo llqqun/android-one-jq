@@ -22,15 +22,18 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.newandroidone.cardreader.CardInfo;
 import com.example.newandroidone.cardreader.CardReaderCallback;
 import com.example.newandroidone.cardreader.CardReaderManager;
+import com.example.newandroidone.qrcode.QRCodeReaderManager;
 
 public class MainActivity extends AppCompatActivity implements CardReaderCallback {
 
     private WebView webView;
     private CardReaderManager cardReaderManager;
+    private QRCodeReaderManager qrCodeReaderManager;
     private DisplayManager mDisplayManager;
     private MyPresentation myPresentation;
     private String samId = "";
 
+    // Activity创建时的回调方法，用于初始化界面和组件
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -46,6 +49,45 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         cardReaderManager.setCallback(this);
         // 自动连接读卡器
         cardReaderManager.openDevice();
+
+        qrCodeReaderManager = new QRCodeReaderManager(this);
+        qrCodeReaderManager.setCallback(new QRCodeReaderManager.QRCodeCallback() {
+            @Override
+            public void onQRCodeRead(String qrCodeData) {
+                // 通知前端二维码数据
+                // Toast.makeText(MainActivity.this, "二维码读取成功: " + qrCodeData, Toast.LENGTH_SHORT).show();
+                webView.evaluateJavascript("javascript:showStatus('二维码读取成功', 'success')", null);
+                webView.evaluateJavascript("javascript:showQRCodeInfo('" + escapeJavaScriptString(qrCodeData) + "')", null);
+            }
+
+            @Override
+            public void onDeviceConnected(boolean success, String message) {
+                //通知前端连接状态
+                // Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
+                String statusType = success ? "success" : "error";
+                webView.evaluateJavascript("javascript:showStatus('" + message + "', '" + statusType + "')", null);
+                webView.evaluateJavascript("javascript:onQRCodeDeviceConnected(" + success + ")", null);
+                
+                // 如果连接成功，自动开启二维码扫描
+                if (success) {
+                    android.util.Log.d("MainActivity", "二维码设备连接成功，自动开启扫描...");
+                    qrCodeReaderManager.startReading();
+                }
+            }
+
+            @Override
+            public void onDeviceDisconnected() {
+                android.util.Log.d("MainActivity", "二维码设备断开连接");
+                webView.evaluateJavascript("javascript:showStatus('二维码设备断开连接', 'info')", null);
+                webView.evaluateJavascript("javascript:onQRCodeDeviceDisconnected()", null);
+            }
+
+            @Override
+            public void onError(String errorMessage) {
+                android.util.Log.d("MainActivity", "二维码错误: " + errorMessage);
+                webView.evaluateJavascript("javascript:showStatus('" + errorMessage + "', 'info')", null);
+            }
+        });
 
         webView = findViewById(R.id.webView);
         WebSettings webSettings = webView.getSettings();
@@ -75,11 +117,6 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         // 设置WebView使用宽视口
         webSettings.setUseWideViewPort(true);
         webSettings.setLoadWithOverviewMode(true);
-        
-        // 启用缩放功能（可选）
-        // webSettings.setSupportZoom(true);
-        // webSettings.setBuiltInZoomControls(true);
-        // webSettings.setDisplayZoomControls(false);
         
         // 增加版本兼容性检查
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.JELLY_BEAN) {
@@ -112,13 +149,13 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
 
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
-                Toast.makeText(MainActivity.this, "加载错误: " + description, Toast.LENGTH_SHORT).show();
+                // Toast.makeText(MainActivity.this, "加载错误: " + description, Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse errorResponse) {
                 super.onReceivedHttpError(view, request, errorResponse);
-                Toast.makeText(MainActivity.this, "HTTP 错误: " + errorResponse.getStatusCode(), Toast.LENGTH_SHORT).show();
+                // Toast.makeText(MainActivity.this, "HTTP 错误: " + errorResponse.getStatusCode(), Toast.LENGTH_SHORT).show();
             }
 
             @Override
@@ -130,6 +167,12 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
                 if (!samId.isEmpty()) {
                     android.util.Log.d("WebView", "页面加载完成，传递SAMID: " + samId);
                     webView.evaluateJavascript("javascript:setDeviceId('" + samId + "')", null);
+                }
+                
+                // 主屏页面加载完成后自动开启二维码识别
+                if (qrCodeReaderManager != null) {
+                    android.util.Log.d("MainActivity", "自动开启二维码识别...");
+                    qrCodeReaderManager.openDevice();
                 }
             }
 
@@ -162,23 +205,29 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         updateContents();
     }
 
+    // Activity暂停时的回调方法，暂停WebView
     @Override
     protected void onPause() {
         super.onPause();
         webView.onPause();
     }
 
+    // Activity恢复时的回调方法，恢复WebView
     @Override
     protected void onResume() {
         super.onResume();
         webView.onResume();
     }
 
+    // Activity销毁时的回调方法，释放资源
     @Override
     protected void onDestroy() {
         super.onDestroy();
         if (cardReaderManager != null) {
             cardReaderManager.release();
+        }
+        if (qrCodeReaderManager != null) {
+            qrCodeReaderManager.release();
         }
         if (myPresentation != null) {
             myPresentation.dismiss();
@@ -192,6 +241,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         }
     }
 
+    // 处理返回键事件，如果WebView可以后退则后退，否则退出
     @Override
     public void onBackPressed() {
         if (webView.canGoBack()) {
@@ -265,6 +315,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         }
     }
 
+    // 读卡器设备连接成功的回调方法
     @Override
     public void onDeviceConnected(boolean success, String message) {
         String statusType = success ? "success" : "error";
@@ -287,11 +338,13 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         webView.evaluateJavascript("javascript:showStatus('" + (success ? "打开设备成功，" + message : "打开设备失败") + "', '" + statusType + "')", null);
     }
 
+    // 读卡器设备断开连接的回调方法
     @Override
     public void onDeviceDisconnected() {
         webView.evaluateJavascript("javascript:showStatus('设备断开连接', 'info')", null);
     }
 
+    // 读卡成功的回调方法，将身份证信息传递给WebView
     @Override
     public void onCardReadSuccess(CardInfo cardInfo) {
         String jsonData = "{" +
@@ -314,11 +367,13 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
         }
     }
 
+    // 读卡失败的回调方法，显示错误信息
     @Override
     public void onCardReadFail(String errorMessage) {
         webView.evaluateJavascript("javascript:showStatus('" + errorMessage + "', 'error')", null);
     }
 
+    // 获取固件版本的回调方法
     @Override
     public void onFirmwareVersion(String version) {
         if (version != null && !version.isEmpty()) {
@@ -420,56 +475,163 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
                    .replace("\t", "\\t");
     }
 
+    // JavaScript接口类，用于WebView与Android原生代码通信
     public class JavaScriptInterface {
+        // 连接读卡器设备
         @JavascriptInterface
         public void connectDevice(String serial) {
             cardReaderManager.setSerialName(serial);
             cardReaderManager.openDevice();
         }
 
+        // 断开读卡器设备连接
         @JavascriptInterface
         public void disconnectDevice() {
             cardReaderManager.closeDevice();
         }
 
+        // 读取身份证信息
         @JavascriptInterface
         public void readCard() {
             cardReaderManager.readCard();
         }
 
+        // 获取读卡器固件版本
         @JavascriptInterface
         public void getFirmwareVersion() {
             cardReaderManager.getFirmwareVersion();
         }
 
+        // 开启自动读卡功能
         @JavascriptInterface
         public void startAutoRead() {
             cardReaderManager.startAutoRead();
         }
 
+        // 停止自动读卡功能
         @JavascriptInterface
         public void stopAutoRead() {
             cardReaderManager.stopAutoRead();
         }
 
+        // 打开二维码设备
+        @JavascriptInterface
+        public void openQRCodeDevice() {
+            if (qrCodeReaderManager != null) {
+                qrCodeReaderManager.openDevice();
+            }
+        }
+
+        // 关闭二维码设备
+        @JavascriptInterface
+        public void closeQRCodeDevice() {
+            if (qrCodeReaderManager != null) {
+                qrCodeReaderManager.closeDevice();
+            }
+        }
+
+        // 开始读取二维码
+        @JavascriptInterface
+        public void startQRCodeRead() {
+            if (qrCodeReaderManager != null) {
+                qrCodeReaderManager.startReading();
+            }
+        }
+
+        // 停止读取二维码
+        @JavascriptInterface
+        public void stopQRCodeRead() {
+            if (qrCodeReaderManager != null) {
+                qrCodeReaderManager.stopReading();
+            }
+        }
+
+        // 检查二维码是否正在读取
+        @JavascriptInterface
+        public boolean isQRCodeReading() {
+            return qrCodeReaderManager != null && qrCodeReaderManager.isReading();
+        }
+
+        // 检查二维码设备是否已连接
+        @JavascriptInterface
+        public boolean isQRCodeConnected() {
+            return qrCodeReaderManager != null && qrCodeReaderManager.isConnected();
+        }
+
+        // 获取二维码日志内容
+        @JavascriptInterface
+        public String getQRCodeLog() {
+            if (qrCodeReaderManager != null) {
+                return qrCodeReaderManager.getLogContent();
+            }
+            return "二维码管理器未初始化";
+        }
+
+        // 获取二维码日志文件路径
+        @JavascriptInterface
+        public String getQRCodeLogPath() {
+            if (qrCodeReaderManager != null) {
+                return qrCodeReaderManager.getLogFilePath();
+            }
+            return "二维码管理器未初始化";
+        }
+
+        // 获取读卡器日志内容
+        @JavascriptInterface
+        public String getCardReaderLog() {
+            if (cardReaderManager != null) {
+                return cardReaderManager.getLogContent();
+            }
+            return "读卡器管理器未初始化";
+        }
+
+        // 获取读卡器日志文件路径
+        @JavascriptInterface
+        public String getCardReaderLogPath() {
+            if (cardReaderManager != null) {
+                return cardReaderManager.getLogFilePath();
+            }
+            return "读卡器管理器未初始化";
+        }
+
+        // 清空二维码日志
+        @JavascriptInterface
+        public void clearQRCodeLog() {
+            if (qrCodeReaderManager != null) {
+                qrCodeReaderManager.clearLog();
+            }
+        }
+
+        // 清空读卡器日志
+        @JavascriptInterface
+        public void clearCardReaderLog() {
+            if (cardReaderManager != null) {
+                cardReaderManager.clearLog();
+            }
+        }
+
+        // 获取屏幕类型（主屏返回"main"）
         @JavascriptInterface
         public String getScreenType() {
             // 主屏返回 "main", 副屏在 MyPresentation 中返回 "secondary"
             return "main";
         }
         
+        // 获取设备ID（SAMID）
         @JavascriptInterface
         public String getDeviceId() {
             // 返回设备ID（SAMID）
             return samId;
         }
         
+        // 同步localStorage数据到两个WebView
         @JavascriptInterface
         public void syncLocalStorage(String key, String value) {
             // 同步localStorage数据到两个WebView
             syncLocalStorageData(key, value);
         }
         
+        // 通知副屏更新数据
         @JavascriptInterface
         public void notifySecondaryScreenUpdate(final String event) {
             // 在主线程上执行操作
@@ -488,6 +650,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
             });
         }
         
+        // 收起键盘
         @JavascriptInterface
         public void hideKeyboard() {
             // 收起键盘
@@ -497,6 +660,7 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
             }
         }
         
+        // 通知主屏更新数据
         @JavascriptInterface
         public void notifyMainScreenUpdate(final String event) {
             // 在主线程上执行操作

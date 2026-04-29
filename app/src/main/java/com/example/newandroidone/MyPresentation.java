@@ -27,6 +27,7 @@ public class MyPresentation extends Presentation {
     private String deviceId = "";
     private MainActivity mainActivity;
 
+    // 构造函数，初始化副屏Presentation
     public MyPresentation(Context outerContext, Display display) {
         super(outerContext, display);
         // Log.d(TAG, "MyPresentation构造函数被调用");
@@ -39,6 +40,7 @@ public class MyPresentation extends Presentation {
         }
     }
 
+    // Presentation创建时的回调方法，初始化副屏WebView
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -214,6 +216,7 @@ public class MyPresentation extends Presentation {
         }
     }
 
+    // 关闭副屏Presentation
     @Override
     public void dismiss() {
         super.dismiss();
@@ -224,12 +227,14 @@ public class MyPresentation extends Presentation {
         }
     }
     
+    // Presentation启动时的回调方法
     @Override
     protected void onStart() {
         super.onStart();
         // Log.d(TAG, "MyPresentation onStart");
     }
     
+    // Presentation停止时的回调方法
     @Override
     protected void onStop() {
         super.onStop();
@@ -394,25 +399,30 @@ public class MyPresentation extends Presentation {
         }
     }
 
+    // JavaScript接口类，用于副屏WebView与Android原生代码通信
     public class JavaScriptInterface {
+        // 获取屏幕类型（副屏返回"secondary"）
         @JavascriptInterface
         public String getScreenType() {
             // 副屏返回 "secondary"
             return "secondary";
         }
         
+        // 获取设备ID（SAMID）
         @JavascriptInterface
         public String getDeviceId() {
             // 返回设备ID（SAMID）
             return deviceId;
         }
         
+        // 同步localStorage数据到副屏
         @JavascriptInterface
         public void syncLocalStorage(String key, String value) {
             // 同步localStorage数据到副屏
             syncLocalStorageData(key, value);
         }
         
+        // 通知主屏登录成功
         @JavascriptInterface
         public void notifyMainScreenLoginSuccess() {
             // Toast.makeText(getContext(), "通知主屏登录成功::notifyMainScreenLoginSuccess", Toast.LENGTH_LONG).show();
@@ -421,7 +431,8 @@ public class MyPresentation extends Presentation {
             notifyMainScreenLoginSuccessFromSecondary();
         }
 
-                @JavascriptInterface
+        // 收起键盘
+        @JavascriptInterface
         public void hideKeyboard() {
             // 收起键盘
             InputMethodManager imm = (InputMethodManager) getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -430,6 +441,7 @@ public class MyPresentation extends Presentation {
             }
         }
         
+        // 通知主屏更新数据
         @JavascriptInterface
         public void notifyMainScreenUpdate(final String event) {
             // 通知主屏更新数据

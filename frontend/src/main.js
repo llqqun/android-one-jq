@@ -5,13 +5,16 @@ import App from './App.vue'
 import router from './router'
 import 'vant/lib/index.css'
 import vconsole from 'vconsole'
+import { initAndroidBridge } from './utils/androidBridge'
 
 window.vconsole = new vconsole()
+
+initAndroidBridge()
 
 // 测试代码
 // window.android = {
 //     getDeviceId: () => '05132017062000003180902854042382',
-//   getScreenType: () => 'secondary',
+//   getScreenType: () => 'main',
 //   hideKeyboard: () => console.log('hideKeyboard called')
 // }
 function initApp() {

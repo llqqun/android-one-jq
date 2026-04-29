@@ -5,6 +5,39 @@
       <img src="../assets/images/home_3.png" class="home-image-text" alt="text" />
     </div>
 
+    <!-- 功能调试区域 -->
+    <div class="debug-section">
+      <div class="debug-header">
+        <span class="section-title">功能调试</span>
+        <div class="debug-buttons">
+          <van-button
+            type="warning"
+            size="small"
+            @click="viewQRCodeLog">
+            二维码日志
+          </van-button>
+          <van-button
+            type="warning"
+            size="small"
+            @click="viewCardReaderLog">
+            读卡器日志
+          </van-button>
+          <van-button
+            type="warning"
+            size="small"
+            @click="clearLog">
+            清除日志
+          </van-button>
+        </div>
+      </div>
+
+      <div v-if="qrCodeData" class="scan-result">
+        <div class="result-title">识别结果</div>
+        <div class="result-content">{{ qrCodeData }}</div>
+        <van-button type="primary" size="small" @click="clearQRCodeResult">清除结果</van-button>
+      </div>
+    </div>
+
     <!-- 企业登录弹窗 -->
     <van-popup
       v-model:show="showLoginDialog"
@@ -62,6 +95,26 @@
         </div>
       </div>
     </van-popup>
+
+    <!-- 日志查看弹窗 -->
+    <van-popup
+      v-model:show="showLogDialog"
+      round
+      position="center"
+      :style="{ width: '80%', maxHeight: '80%' }">
+      <div class="log-dialog">
+        <div class="log-header">
+          <span class="log-title">{{ logType === 'qrcode' ? '二维码日志' : '读卡器日志' }}</span>
+          <van-icon name="cross" @click="showLogDialog = false" />
+        </div>
+        <div class="log-content">
+          <pre>{{ logContent }}</pre>
+        </div>
+        <div class="log-footer">
+          <van-button type="primary" size="small" @click="showLogDialog = false">关闭</van-button>
+        </div>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -84,21 +137,17 @@ const deviceId = ref('');
 
 // 登录弹窗状态
 const showLoginDialog = ref(false);
-const loginType = ref('qrcode'); // 'password' 或 'qrcode'
+const loginType = ref('qrcode');
 
 // 监听登录类型变化
 watch(loginType, (newType) => {
   if (newType === 'qrcode') {
-    // 切换到扫码登录时获取二维码
     getHRQRCode();
   }
 });
 
 // 账号密码登录表单
-// 测试用账号密码
 const loginForm = ref({
-  // username: '',
-  // password: '',
   username: '15173608575',
   password: 'Yy147258',
 });
@@ -113,6 +162,71 @@ const qrCodeLoading = ref(false);
 const qrCodeError = ref('');
 const qrUuid = ref('');
 
+// 二维码扫描状态
+const qrCodeData = ref('');
+const showLogDialog = ref(false);
+const logContent = ref('');
+const logType = ref('qrcode'); // 'qrcode' | 'cardreader'
+
+
+// 清除二维码结果
+const clearQRCodeResult = () => {
+  qrCodeData.value = '';
+};
+
+// 查看二维码日志
+const viewQRCodeLog = () => {
+  logType.value = 'qrcode';
+  viewLog();
+};
+
+// 查看读卡器日志
+const viewCardReaderLog = () => {
+  logType.value = 'cardreader';
+  viewLog();
+};
+
+// 通用查看日志方法
+const viewLog = () => {
+  try {
+    if (window.android) {
+      let log = '';
+      if (logType.value === 'qrcode' && window.android.getQRCodeLog) {
+        log = window.android.getQRCodeLog();
+      } else if (logType.value === 'cardreader' && window.android.getCardReaderLog) {
+        log = window.android.getCardReaderLog();
+      }
+      logContent.value = log;
+      showLogDialog.value = true;
+    } else {
+      showToast('设备不支持查看日志');
+    }
+  } catch (error) {
+    console.error('查看日志失败:', error);
+    showToast('查看日志失败');
+  }
+};
+
+// 清除日志
+const clearLog = () => {
+  try {
+    if (window.android) {
+      if (window.android.clearQRCodeLog) {
+        window.android.clearQRCodeLog();
+      }
+      if (window.android.clearCardReaderLog) {
+        window.android.clearCardReaderLog();
+      }
+      showToast('日志已清空');
+    } else {
+      showToast('设备不支持清空日志');
+    }
+  } catch (error) {
+    console.error('清空日志失败:', error);
+    showToast('清空日志失败');
+  }
+};
+
 // 获取HR登录二维码
 const getHRQRCode = async () => {
   qrCodeLoading.value = true;
@@ -122,12 +236,9 @@ const getHRQRCode = async () => {
     console.log('获取HR二维码响应:', response);
     if (response.code === 1) {
       qrCodeUrl.value = response.data.url;
-      // 计算二维码过期时间，减少10秒
       qrCodeExpireTime.value = (response.data.expire_time - 10000) / 1000;
-      // 启动二维码过期定时器
       startQRCodeTimer();
       qrUuid.value = response.data.ticket;
-      // 启动登录状态轮询
       startLoginPolling();
     } else {
       qrCodeError.value = response.msg || '获取二维码失败';
@@ -142,18 +253,15 @@ const getHRQRCode = async () => {
 
 // 启动二维码过期定时器
 const startQRCodeTimer = () => {
-  // 清除之前的定时器
   if (qrCodeTimer.value) {
     clearInterval(qrCodeTimer.value);
   }
 
-  // 设置定时器，当二维码过期时重新获取
   qrCodeTimer.value = setInterval(() => {
     qrCodeExpireTime.value--;
     if (qrCodeExpireTime.value <= 0) {
       clearInterval(qrCodeTimer.value);
       qrCodeTimer.value = null;
-      // 重新获取二维码
       getHRQRCode();
     }
   }, 1000);
@@ -161,19 +269,15 @@ const startQRCodeTimer = () => {
 
 // 启动登录状态轮询
 const startLoginPolling = () => {
-  // 清除之前的轮询
   if (loginPollingTimer.value) {
     clearInterval(loginPollingTimer.value);
   }
 
-  // 设置轮询，每2秒检查一次登录状态
   loginPollingTimer.value = setInterval(async () => {
     try {
       const response = await loginApi.checkHRLoginStatus({ ticket: qrUuid.value });
       if (response.code === 1) {
-        // 检查登录状态
         if (response.data && response.data.logged_in) {
-          // 登录成功
           handleLoginSuccess();
         }
       } else {
@@ -192,27 +296,22 @@ const handlePasswordLogin = async () => {
   if (loginLoading.value) {
     return;
   }
-  // 表单验证
-  let isValid = true;
 
+  let isValid = true;
   if (!loginForm.value.username) {
     showToast('请输入用户名');
     isValid = false;
   }
-
   if (!loginForm.value.password) {
     showToast('请输入密码');
     isValid = false;
   }
-
   if (!isValid) {
     return;
   }
 
-  // 收起键盘
   document.activeElement.blur();
   
-  // 如果是Android设备，尝试调用原生方法收起键盘
   if (window.android && window.android.hideKeyboard) {
     try {
       window.android.hideKeyboard();
@@ -235,16 +334,13 @@ const handlePasswordLogin = async () => {
     };
     const response = await loginApi.validateHRLogin(bodyData);
     if (response.code === 1) {
-      // 存储企业信息
       resumeStore.setCompanyLoginInfo(response.data);
       try {
         localStorage.setItem('companyLoginInfo', JSON.stringify(response.data));
-        handleLoginSuccess();
       } catch (storageError) {
         console.error('localStorage存储失败:', storageError);
-        // 即使存储失败也继续登录流程
-        handleLoginSuccess();
       }
+      handleLoginSuccess();
     } else {
       showToast(response.msg || '登录失败');
     }
@@ -258,27 +354,21 @@ const handlePasswordLogin = async () => {
 
 // 处理登录成功
 const handleLoginSuccess = async () => {
-  // 停止轮询
   if (loginPollingTimer.value) {
     clearInterval(loginPollingTimer.value);
     loginPollingTimer.value = null;
   }
 
-  // 停止二维码过期定时器
   if (qrCodeTimer.value) {
     clearInterval(qrCodeTimer.value);
     qrCodeTimer.value = null;
   }
 
-  // 关闭登录弹窗
   showLoginDialog.value = false;
 
-  // 检查当前是否为副屏
   if (screenType.value === 'secondary') {
-    // 副屏登录成功，通知主屏
     try {
       if (window.android && window.android.notifyMainScreenUpdate) {
-        // 确保data是字符串格式
         const loginData = {
           type: 'loginSuccess',
           data: resumeStore.companyLoginInfo
@@ -295,7 +385,6 @@ const handleLoginSuccess = async () => {
     }
   }
 
-  // 跳转到cvList页面
   setTimeout(() => {
     router.push('/cvList');
   }, 500);
@@ -305,39 +394,29 @@ const handleLoginSuccess = async () => {
 const handleScreenUpdate = (message) => {
   console.log('收到屏幕交互消息:handleScreenUpdate:', message);
   try {
-    // 尝试修复可能的转义字符问题
     let cleanedMessage = message;
-    // 替换可能的双重转义
     cleanedMessage = cleanedMessage.replace(/\\\\/g, '\\');
-    // 解析消息
     const parsedMessage = JSON.parse(cleanedMessage);
     console.log('解析后的消息:', parsedMessage);
     
     if (parsedMessage.type === 'loginSuccess') {
-      // 处理登录成功消息
       console.log('收到副屏登录成功消息:', parsedMessage);
       try {
-        // 存储企业信息到localStorage
         let companyLoginInfo;
         if (typeof parsedMessage.data === 'string') {
-          // 尝试解析data字段
           companyLoginInfo = JSON.parse(parsedMessage.data);
         } else {
-          // 如果data已经是对象，直接使用
           companyLoginInfo = parsedMessage.data;
         }
         console.log('解析后的企业登录信息:', companyLoginInfo);
         localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
-        // 存储到store
         resumeStore.setCompanyLoginInfo(companyLoginInfo);
-        // 跳转到resumeSubmission页面
         console.log('准备跳转到resumeSubmission页面');
         if (router) {
           router.push('/resumeSubmission');
           console.log('跳转命令已执行');
         } else {
           console.error('router未定义，无法跳转');
-          // 备用方案：使用window.location.href
           window.location.href = '#/resumeSubmission';
           console.log('使用备用方案跳转');
         }
@@ -349,17 +428,13 @@ const handleScreenUpdate = (message) => {
   } catch (error) {
     console.error('处理屏幕交互消息失败:', error);
     console.error('原始消息:', message);
-    // 尝试另一种解析方式，处理可能的格式问题
     try {
-      // 检查是否是登录成功消息的格式
       if (message.includes('loginSuccess')) {
         console.log('尝试使用备用方式解析登录成功消息');
-        // 提取企业信息部分
         const dataStart = message.indexOf('"data":"') + 7;
         const dataEnd = message.lastIndexOf('"');
         if (dataStart > 7 && dataEnd > dataStart) {
           let dataStr = message.substring(dataStart, dataEnd);
-          // 处理转义字符
           dataStr = dataStr.replace(/\\"/g, '"');
           dataStr = dataStr.replace(/\\\\/g, '\\');
           console.log('提取的data字符串:', dataStr);
@@ -367,7 +442,6 @@ const handleScreenUpdate = (message) => {
           console.log('解析后的企业登录信息:', companyLoginInfo);
           localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
           resumeStore.setCompanyLoginInfo(companyLoginInfo);
-          // 跳转到resumeSubmission页面
           if (router) {
             router.push('/resumeSubmission');
           } else {
@@ -381,87 +455,22 @@ const handleScreenUpdate = (message) => {
   }
 };
 
-// 在全局作用域中定义onScreenUpdate函数，确保原生代码可以调用
-if (typeof window !== 'undefined') {
-  // 立即定义onScreenUpdate函数
-  window.onScreenUpdate = function(message) {
-    console.log('原生调用onScreenUpdateHome:', message);
-    try {
-      // 要解析2次
-      const zhstr = JSON.parse(`"${message}"`);
-      // 解析消息
-      const parsedMessage = JSON.parse(zhstr);
-      console.log('解析后的消息:', parsedMessage);
-      console.log('解析后的消息:', typeof parsedMessage, parsedMessage.type, typeof parsedMessage.data);
+// 处理二维码数据
+const handleQRCodeData = (data) => {
+  console.log('处理二维码数据:', data);
+  qrCodeData.value = data;
+  showToast('二维码识别成功');
+};
 
-      if (parsedMessage.type === 'loginSuccess') {
-        try {
-          // 存储企业信息到localStorage
-          let companyLoginInfo;
-          if (typeof parsedMessage.data === 'string') {
-            // 尝试解析data字段
-            companyLoginInfo = JSON.parse(parsedMessage.data);
-          } else {
-            // 如果data已经是对象，直接使用
-            companyLoginInfo = parsedMessage.data;
-          }
-          console.log('解析后的企业登录信息:', companyLoginInfo);
-          localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
-          // 存储到store
-          resumeStore.setCompanyLoginInfo(companyLoginInfo);
-          // 跳转到resumeSubmission页面
-          console.log('准备跳转到resumeSubmission页面');
-          if (router) {
-            router.push('/resumeSubmission');
-            console.log('跳转命令已执行');
-          } else {
-            console.error('router未定义，无法跳转');
-            // 备用方案：使用window.location.href
-            window.location.href = '#/resumeSubmission';
-            console.log('使用备用方案跳转');
-          }
-        } catch (dataError) {
-          console.error('解析企业登录信息失败:', dataError);
-          console.error('原始data字段:', parsedMessage.data);
-        }
-      }
-    } catch (error) {
-      console.error('处理屏幕交互消息失败:', error);
-      console.error('原始消息:', message);
-      // 尝试另一种解析方式，处理可能的格式问题
-      try {
-        // 检查是否是登录成功消息的格式
-        if (message.includes('loginSuccess')) {
-          console.log('尝试使用备用方式解析登录成功消息');
-          // 提取企业信息部分
-          const dataStart = message.indexOf('"data":"') + 7;
-          const dataEnd = message.lastIndexOf('"');
-          if (dataStart > 7 && dataEnd > dataStart) {
-            let dataStr = message.substring(dataStart, dataEnd);
-            // 处理转义字符
-            dataStr = dataStr.replace(/\"/g, '"');
-            dataStr = dataStr.replace(/\\\\/g, '\\');
-            console.log('提取的data字符串:', dataStr);
-            const companyLoginInfo = JSON.parse(dataStr);
-            console.log('解析后的企业登录信息:', companyLoginInfo);
-            localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
-            resumeStore.setCompanyLoginInfo(companyLoginInfo);
-            // 跳转到resumeSubmission页面
-            if (router) {
-              router.push('/resumeSubmission');
-            } else {
-              window.location.href = '#/resumeSubmission';
-            }
-          }
-        }
-      } catch (fallbackError) {
-        console.error('备用解析方式也失败:', fallbackError);
-      }
-    }
-  };
-  
-  console.log('onScreenUpdate函数是否可用:', typeof window.onScreenUpdate === 'function');
-}
+// 处理二维码连接状态
+const handleQRCodeConnected = (success) => {
+  console.log('二维码设备连接状态:', success);
+  if (success) {
+    showToast('二维码设备连接成功');
+  } else {
+    showToast('二维码设备连接失败');
+  }
+};
 
 onMounted(() => {
   if (window.android && window.android.getDeviceId) {
@@ -471,22 +480,21 @@ onMounted(() => {
       console.log('初始化获取到设备ID:', id);
     }
   }
+  
   getDevScreen();
+  
   if (window.android && window.android.getScreenType) {
     screenType.value = window.android.getScreenType();
     console.log('Screen type:', screenType.value);
 
     if (screenType.value === 'secondary') {
-      // 副屏显示登录弹窗
       setTimeout(() => {
         showLoginDialog.value = true;
-        // 测试
         getHRQRCode();
       }, 1500);
     }
   }
 
-  // 监听设备ID事件
   window.addEventListener('deviceIdReceived', (event) => {
     const id = event.detail;
     deviceId.value = id;
@@ -494,10 +502,8 @@ onMounted(() => {
     console.log('Home页面收到设备ID:', id);
   });
 
-  // 监听副屏登录成功事件
   window.addEventListener('secondaryScreenLoginSuccess', () => {
     console.log('Home页面收到副屏登录成功通知');
-    // 跳转到resumeSubmission页面
     try {
       console.log('准备跳转到resumeSubmission页面');
       if (router) {
@@ -505,42 +511,49 @@ onMounted(() => {
         console.log('跳转命令已执行');
       } else {
         console.error('router未定义，无法跳转');
-        // 备用方案：使用window.location.href
         window.location.href = '#/resumeSubmission';
         console.log('使用备用方案跳转');
       }
     } catch (error) {
       console.error('跳转失败:', error);
-      // 备用方案：使用window.location.href
       window.location.href = '#/resumeSubmission';
       console.log('使用备用方案跳转');
     }
   });
 
-  // 监听卡片信息事件
   window.addEventListener('cardInfoReceived', (event) => {
     const cardInfo = event.detail;
     console.log('Home页面收到卡片信息:', cardInfo);
-    // 这里可以添加处理卡片信息的逻辑
   });
 
-  // 监听状态信息事件
   window.addEventListener('statusMessage', (event) => {
     const { message, type } = event.detail;
     console.log('Home页面收到状态信息:', message, type);
-    // 这里可以添加处理状态信息的逻辑
   });
   
-  // 监听屏幕更新事件
   window.addEventListener('screenUpdate', (event) => {
     console.log('Home页面收到屏幕更新消息:screenUpdate:', event);
     const message = event.detail;
     handleScreenUpdate(message);
   });
+
+  // 监听二维码相关事件
+  window.addEventListener('qrCodeReceived', (event) => {
+    console.log('收到二维码事件:', event.detail);
+    handleQRCodeData(event.detail);
+  });
+
+  window.addEventListener('qrCodeConnected', (event) => {
+    console.log('收到二维码连接事件:', event.detail);
+    handleQRCodeConnected(event.detail);
+  });
+
+  window.addEventListener('qrCodeDisconnected', () => {
+    console.log('收到二维码断开事件');
+  });
 });
 
 onUnmounted(() => {
-  // 清除定时器
   if (qrCodeTimer.value) {
     clearInterval(qrCodeTimer.value);
   }
@@ -551,13 +564,13 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@import '../assets/mixins.scss';
 .device-id {
   font-size: 14px;
   color: #333;
   text-align: center;
   margin-top: 20px;
 }
-@import '../assets/mixins.scss';
 .van-popup {
   opacity: 0.85;
 }
@@ -723,5 +736,156 @@ onUnmounted(() => {
   color: #ff4d4f;
   text-align: center;
   margin-top: 10px;
+}
+
+/* 功能调试区域样式 */
+.debug-section {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.debug-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.debug-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.status-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  
+  &.connected {
+    color: #07c160;
+    .status-dot {
+      background-color: #07c160;
+    }
+  }
+  
+  &.disconnected {
+    color: #999;
+    .status-dot {
+      background-color: #999;
+    }
+  }
+  
+  &.scanning {
+    color: #1989fa;
+  }
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.scan-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #1989fa;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0.3;
+  }
+}
+
+.scan-result {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+}
+
+.result-title {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.result-content {
+  font-size: 14px;
+  color: #333;
+  word-break: break-all;
+  margin-bottom: 12px;
+}
+
+/* 日志弹窗样式 */
+.log-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: 80vh;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.log-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.log-content {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  max-height: 60vh;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  margin: 16px;
+}
+
+.log-content pre {
+  font-size: 12px;
+  color: #333;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  margin: 0;
+  font-family: 'Courier New', monospace;
+}
+
+.log-footer {
+  padding: 16px;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: center;
 }
 </style>
