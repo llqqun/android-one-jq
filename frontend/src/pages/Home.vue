@@ -394,11 +394,15 @@ const handleLoginSuccess = async () => {
 const handleScreenUpdate = (message) => {
   console.log('收到屏幕交互消息:handleScreenUpdate:', message);
   try {
-    let cleanedMessage = message;
-    cleanedMessage = cleanedMessage.replace(/\\\\/g, '\\');
-    const parsedMessage = JSON.parse(cleanedMessage);
+    // 原始JSON对象消息中未包含双引号，需要转义,否则解析失败
+    let cleanedMessage = `"${message}"`;
+    let parsedMessage = JSON.parse(cleanedMessage);
+    parsedMessage = JSON.parse(parsedMessage);
+
     console.log('解析后的消息:', parsedMessage);
-    
+    console.log('消息类型:', parsedMessage.type, parsedMessage.type === 'loginSuccess');
+    console.log('解析后的消息:', parsedMessage);
+
     if (parsedMessage.type === 'loginSuccess') {
       console.log('收到副屏登录成功消息:', parsedMessage);
       try {
