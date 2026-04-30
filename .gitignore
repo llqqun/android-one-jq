@@ -38,3 +38,4 @@ proguard/
 Thumbs.db
 node_modules/
 .idea/
+/app/src/main/assets/*
