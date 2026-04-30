@@ -6,8 +6,10 @@ import router from './router'
 import 'vant/lib/index.css'
 import vconsole from 'vconsole'
 import { initAndroidBridge } from './utils/androidBridge'
-
-window.vconsole = new vconsole()
+import config from '../utils/config';
+if (config.debugMode) {
+  window.vconsole = new vconsole()
+}
 
 initAndroidBridge()
 
