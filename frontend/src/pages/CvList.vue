@@ -463,12 +463,13 @@
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, ref, computed } from 'vue';
 import { useResumeStore } from '../store/resume';
 import { useRouter } from 'vue-router';
 import { loginApi } from '@/services/api.js';
 import { showToast } from 'vant';
 import { getDevScreen } from '@/utils/index.js';
+import { sendToMainScreen } from '../utils/androidBridge.js';
 
 const resumeStore = useResumeStore();
 const router = useRouter();
@@ -711,19 +712,8 @@ const getJobApplyList = async () => {
 };
 
 const logout = () => {
-  // 发送消息给主屏
-  try {
-    if (window.android && window.android.notifyMainScreenUpdate) {
-      window.android.notifyMainScreenUpdate(JSON.stringify({ type: 'logout' }));
-      console.log('已发送退出登录消息给主屏');
-    } else {
-      console.error('notifyMainScreenUpdate方法未定义');
-    }
-  } catch (error) {
-    console.error('发送退出登录消息失败:', error);
-  }
-
-  // 执行退出登录操作
+  sendToMainScreen('logout');
+  
   resumeStore.logout();
   localStorage.setItem('companyLoginInfo', '');
   router.replace('/');
@@ -743,14 +733,34 @@ const updateData = async () => {
   }
 };
 
-// 处理屏幕更新通知
-window.onScreenUpdate = function (event) {
-  console.log('收到屏幕更新通知:', event);
-  if (event === 'resume_delivered') {
-    // 当收到简历投递成功的通知时，更新数据
+// 处理屏幕事件
+const handleScreenEvent = (event) => {
+  const { action, data } = event.detail;
+  console.log('CvList页面收到屏幕事件:', action, data);
+
+  if (action === 'resumeDelivered') {
     console.log('简历投递成功，更新数据');
     updateData();
   }
+};
+
+// 处理设备ID事件
+const handleDeviceIdReceived = (event) => {
+  const id = event.detail;
+  resumeStore.setDeviceId(id);
+  console.log('CvList页面收到设备ID:', id);
+};
+
+// 处理卡片信息事件
+const handleCardInfoReceived = (event) => {
+  const cardInfo = event.detail;
+  console.log('CvList页面收到卡片信息:', cardInfo);
+};
+
+// 处理状态消息事件
+const handleStatusMessage = (event) => {
+  const { message, type } = event.detail;
+  console.log('CvList页面收到状态信息:', message, type);
 };
 
 // 页面加载时获取数据
@@ -758,26 +768,17 @@ onMounted(async () => {
   getDevScreen();
   await pageInit();
 
-  // 监听设备ID事件
-  window.addEventListener('deviceIdReceived', (event) => {
-    const id = event.detail;
-    if (resumeStore) {
-      resumeStore.setDeviceId(id);
-    }
-    console.log('CvList页面收到设备ID:', id);
-  });
+  window.addEventListener('deviceIdReceived', handleDeviceIdReceived);
+  window.addEventListener('cardInfoReceived', handleCardInfoReceived);
+  window.addEventListener('statusMessage', handleStatusMessage);
+  window.addEventListener('screenEvent', handleScreenEvent);
+});
 
-  // 监听卡片信息事件
-  window.addEventListener('cardInfoReceived', (event) => {
-    const cardInfo = event.detail;
-    console.log('CvList页面收到卡片信息:', cardInfo);
-  });
-
-  // 监听状态信息事件
-  window.addEventListener('statusMessage', (event) => {
-    const { message, type } = event.detail;
-    console.log('CvList页面收到状态信息:', message, type);
-  });
+onUnmounted(() => {
+  window.removeEventListener('deviceIdReceived', handleDeviceIdReceived);
+  window.removeEventListener('cardInfoReceived', handleCardInfoReceived);
+  window.removeEventListener('statusMessage', handleStatusMessage);
+  window.removeEventListener('screenEvent', handleScreenEvent);
 });
 </script>
 

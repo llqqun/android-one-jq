@@ -126,6 +126,7 @@ import { loginApi } from '../services/api';
 import { useResumeStore } from '../store/resume';
 import { showToast } from 'vant';
 import { encryptPassword, getDevScreen } from '@/utils/index.js';
+import { sendToMainScreen } from '../utils/androidBridge.js';
 
 const resumeStore = useResumeStore();
 
@@ -382,108 +383,71 @@ const handleLoginSuccess = async () => {
 
   showLoginDialog.value = false;
 
-  if (screenType.value === 'secondary') {
-    try {
-      if (window.android && window.android.notifyMainScreenUpdate) {
-        const loginData = {
-          type: 'loginSuccess',
-          data: resumeStore.companyLoginInfo
-        };
-        const message = JSON.stringify(loginData);
-        console.log('准备发送的消息:', message);
-        window.android.notifyMainScreenUpdate(message);
-        console.log('副屏登录成功，已通知主屏');
-      } else {
-        console.error('notifyMainScreenUpdate方法未定义');
-      }
-    } catch (error) {
-      console.error('通知主屏失败:', error);
-    }
-  }
+  console.log('发送登录成功消息:', resumeStore.companyLoginInfo);
+  sendToMainScreen('loginSuccess', resumeStore.companyLoginInfo);
 
   setTimeout(() => {
     router.push('/cvList');
   }, 500);
 };
 
-// 处理收到的屏幕交互消息
-const handleScreenUpdate = (message) => {
-  console.log('收到屏幕交互消息:handleScreenUpdate:', message);
-  try {
-    // 原始JSON对象消息中未包含双引号，需要转义,否则解析失败
-    let cleanedMessage = `"${message}"`;
-    let parsedMessage = JSON.parse(cleanedMessage);
-    parsedMessage = JSON.parse(parsedMessage);
+// 处理屏幕事件
+const handleScreenEvent = (event) => {
+  const { action, data } = event.detail;
+  console.log('Home页面收到屏幕事件:', action, data);
 
-    console.log('解析后的消息:', parsedMessage);
-    console.log('消息类型:', parsedMessage.type, parsedMessage.type === 'loginSuccess');
-    console.log('解析后的消息:', parsedMessage);
-
-    if (parsedMessage.type === 'loginSuccess') {
-      console.log('收到副屏登录成功消息:', parsedMessage);
-      try {
-        let companyLoginInfo;
-        if (typeof parsedMessage.data === 'string') {
-          companyLoginInfo = JSON.parse(parsedMessage.data);
-        } else {
-          companyLoginInfo = parsedMessage.data;
-        }
-        console.log('解析后的企业登录信息:', companyLoginInfo);
-        localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
-        resumeStore.setCompanyLoginInfo(companyLoginInfo);
-        console.log('准备跳转到resumeSubmission页面');
-        if (router) {
-          router.push('/resumeSubmission');
-          console.log('跳转命令已执行');
-        } else {
-          console.error('router未定义，无法跳转');
-          window.location.href = '#/resumeSubmission';
-          console.log('使用备用方案跳转');
-        }
-      } catch (dataError) {
-        console.error('解析企业登录信息失败:', dataError);
-        console.error('原始data字段:', parsedMessage.data);
-      }
-    }
-  } catch (error) {
-    console.error('处理屏幕交互消息失败:', error);
-    console.error('原始消息:', message);
+  if (action === 'loginSuccess') {
+    console.log('收到副屏登录成功消息');
     try {
-      if (message.includes('loginSuccess')) {
-        console.log('尝试使用备用方式解析登录成功消息');
-        const dataStart = message.indexOf('"data":"') + 7;
-        const dataEnd = message.lastIndexOf('"');
-        if (dataStart > 7 && dataEnd > dataStart) {
-          let dataStr = message.substring(dataStart, dataEnd);
-          dataStr = dataStr.replace(/\\"/g, '"');
-          dataStr = dataStr.replace(/\\\\/g, '\\');
-          console.log('提取的data字符串:', dataStr);
-          const companyLoginInfo = JSON.parse(dataStr);
-          console.log('解析后的企业登录信息:', companyLoginInfo);
-          localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
-          resumeStore.setCompanyLoginInfo(companyLoginInfo);
-          if (router) {
-            router.push('/resumeSubmission');
-          } else {
-            window.location.href = '#/resumeSubmission';
-          }
-        }
+      let companyLoginInfo = data;
+      if (typeof data === 'string') {
+        companyLoginInfo = JSON.parse(data);
       }
-    } catch (fallbackError) {
-      console.error('备用解析方式也失败:', fallbackError);
+      console.log('解析后的企业登录信息:', companyLoginInfo);
+      localStorage.setItem('companyLoginInfo', JSON.stringify(companyLoginInfo));
+      resumeStore.setCompanyLoginInfo(companyLoginInfo);
+      router.push('/resumeSubmission');
+    } catch (error) {
+      console.error('处理登录成功消息失败:', error);
     }
   }
 };
 
+// 处理设备ID事件
+const handleDeviceIdReceived = (event) => {
+  const id = event.detail;
+  deviceId.value = id;
+  resumeStore.setDeviceId(id);
+  console.log('Home页面收到设备ID:', id, resumeStore.schoolId);
+  saveRecruitmentEquipment(id);
+};
+
+// 处理卡片信息事件
+const handleCardInfoReceived = (event) => {
+  const cardInfo = event.detail;
+  console.log('Home页面收到卡片信息:', cardInfo);
+};
+
+// 处理状态消息事件
+const handleStatusMessage = (event) => {
+  const { message, type } = event.detail;
+  console.log('Home页面收到状态信息:', message, type);
+};
+
 // 处理二维码数据
-const handleQRCodeData = (data) => {
-  console.log('处理二维码数据:', data);
-  qrCodeData.value = data;
+const handleQRCodeReceived = (event) => {
+  console.log('收到二维码事件:', event.detail);
+  qrCodeData.value = event.detail;
 };
 
 // 处理二维码连接状态
-const handleQRCodeConnected = (success) => {
-  console.log('二维码设备连接状态:', success);
+const handleQRCodeConnected = (event) => {
+  console.log('收到二维码连接事件:', event.detail);
+};
+
+// 处理二维码断开事件
+const handleQRCodeDisconnected = () => {
+  console.log('收到二维码断开事件');
 };
 
 onMounted(() => {
@@ -491,7 +455,7 @@ onMounted(() => {
     const id = window.android.getDeviceId();
     if (id) {
       deviceId.value = id;
-      console.log('初始化获取到设备ID:', id);
+      console.log('初始化获取到设备ID:', id, );
       saveRecruitmentEquipment(id);
     }
   }
@@ -510,63 +474,13 @@ onMounted(() => {
     }
   }
 
-  window.addEventListener('deviceIdReceived', (event) => {
-    const id = event.detail;
-    deviceId.value = id;
-    resumeStore.setDeviceId(id);
-    console.log('Home页面收到设备ID:', id);
-    saveRecruitmentEquipment(id);
-  });
-
-  window.addEventListener('secondaryScreenLoginSuccess', () => {
-    console.log('Home页面收到副屏登录成功通知');
-    try {
-      console.log('准备跳转到resumeSubmission页面');
-      if (router) {
-        router.push('/resumeSubmission');
-        console.log('跳转命令已执行');
-      } else {
-        console.error('router未定义，无法跳转');
-        window.location.href = '#/resumeSubmission';
-        console.log('使用备用方案跳转');
-      }
-    } catch (error) {
-      console.error('跳转失败:', error);
-      window.location.href = '#/resumeSubmission';
-      console.log('使用备用方案跳转');
-    }
-  });
-
-  window.addEventListener('cardInfoReceived', (event) => {
-    const cardInfo = event.detail;
-    console.log('Home页面收到卡片信息:', cardInfo);
-  });
-
-  window.addEventListener('statusMessage', (event) => {
-    const { message, type } = event.detail;
-    console.log('Home页面收到状态信息:', message, type);
-  });
-  
-  window.addEventListener('screenUpdate', (event) => {
-    console.log('Home页面收到屏幕更新消息:screenUpdate:', event);
-    const message = event.detail;
-    handleScreenUpdate(message);
-  });
-
-  // 监听二维码相关事件
-  window.addEventListener('qrCodeReceived', (event) => {
-    console.log('收到二维码事件:', event.detail);
-    handleQRCodeData(event.detail);
-  });
-
-  window.addEventListener('qrCodeConnected', (event) => {
-    console.log('收到二维码连接事件:', event.detail);
-    handleQRCodeConnected(event.detail);
-  });
-
-  window.addEventListener('qrCodeDisconnected', () => {
-    console.log('收到二维码断开事件');
-  });
+  window.addEventListener('deviceIdReceived', handleDeviceIdReceived);
+  window.addEventListener('cardInfoReceived', handleCardInfoReceived);
+  window.addEventListener('statusMessage', handleStatusMessage);
+  window.addEventListener('screenEvent', handleScreenEvent);
+  window.addEventListener('qrCodeReceived', handleQRCodeReceived);
+  window.addEventListener('qrCodeConnected', handleQRCodeConnected);
+  window.addEventListener('qrCodeDisconnected', handleQRCodeDisconnected);
 });
 
 onUnmounted(() => {
@@ -576,6 +490,13 @@ onUnmounted(() => {
   if (loginPollingTimer.value) {
     clearInterval(loginPollingTimer.value);
   }
+  window.removeEventListener('deviceIdReceived', handleDeviceIdReceived);
+  window.removeEventListener('cardInfoReceived', handleCardInfoReceived);
+  window.removeEventListener('statusMessage', handleStatusMessage);
+  window.removeEventListener('screenEvent', handleScreenEvent);
+  window.removeEventListener('qrCodeReceived', handleQRCodeReceived);
+  window.removeEventListener('qrCodeConnected', handleQRCodeConnected);
+  window.removeEventListener('qrCodeDisconnected', handleQRCodeDisconnected);
 });
 </script>
 

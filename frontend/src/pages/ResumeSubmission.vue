@@ -218,6 +218,7 @@ import CircleProgress from '../components/CircleProgress.vue';
 import QrcodeVue from 'qrcode.vue';
 import { showToast } from 'vant';
 import { getDevScreen } from '@/utils/index.js';
+import { sendToSecondaryScreen } from '../utils/androidBridge.js';
 
 const resumeStore = useResumeStore();
 const router = useRouter();
@@ -314,78 +315,44 @@ const handleDeviceIdReceived = (event) => {
   console.log('ResumeSubmission页面收到设备ID:', id);
 };
 
-// 处理屏幕更新事件
-const handleScreenUpdate = (message) => {
-  console.log('收到屏幕更新消息:', message);
-  try {
-    // 要解析2次
-    const zhstr = JSON.parse(`"${message}"`);
-    // 解析消息
-    const parsedMessage = JSON.parse(zhstr);
-    if (parsedMessage.type === 'logout') {
-      // 处理退出登录消息
-      console.log('收到退出登录消息');
-      // 清空localStorage内容
-      localStorage.setItem('companyLoginInfo', '');
-      // 跳转到home.vue页面
-      console.log('准备跳转到home页面');
-      if (router) {
-        router.replace('/');
-        console.log('跳转命令已执行');
-      } else {
-        console.error('router未定义，无法跳转');
-        // 备用方案：使用window.location.href
-        window.location.href = '#/';
-        console.log('使用备用方案跳转');
-      }
-    }
-  } catch (error) {
-    console.error('处理屏幕更新消息失败:', error);
+// 处理屏幕事件
+const handleScreenEvent = (event) => {
+  const { action, data } = event.detail;
+  console.log('ResumeSubmission页面收到屏幕事件:', action, data);
+
+  if (action === 'logout') {
+    console.log('收到退出登录消息');
+    localStorage.setItem('companyLoginInfo', '');
+    resumeStore.setCompanyLoginInfo(null);
+    router.replace('/');
   }
 };
 
 onMounted(async () => {
-  // 监听卡片信息事件
   window.addEventListener('cardInfoReceived', handleCardInfoReceived);
   window.addEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess);
   window.addEventListener('deviceIdReceived', handleDeviceIdReceived);
-
-  // 在全局作用域中定义onScreenUpdate函数，确保原生代码可以调用
-  if (typeof window !== 'undefined') {
-    window.onScreenUpdate = function (message) {
-      console.log('原生调用onScreenUpdate:', message);
-      // 直接处理消息
-      handleScreenUpdate(message);
-    };
-  }
+  window.addEventListener('screenEvent', handleScreenEvent);
 
   getDevScreen();
-  // 测试
-  // handleCardInfoReceived({ detail: { idNumber: '610523200003221541' } });
   await pageInfo();
-  // 检查是否已有存储的卡片信息
+  
   if (window.cardInfo) {
     console.log('window.cardInfo', window.cardInfo);
     cardInfo.value = window.cardInfo;
   }
 
-  // 获取登录二维码
   if (companyInfo.value) {
     getQRCode();
   }
 });
 
 onUnmounted(() => {
-  // 移除事件监听
   window.removeEventListener('cardInfoReceived', handleCardInfoReceived);
   window.removeEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess);
   window.removeEventListener('deviceIdReceived', handleDeviceIdReceived);
-  // 移除屏幕更新事件监听
-  window.removeEventListener('screenUpdate', (event) => {
-    handleScreenUpdate(event.detail);
-  });
+  window.removeEventListener('screenEvent', handleScreenEvent);
 
-  // 清除定时器
   if (qrCodeTimer.value) {
     clearInterval(qrCodeTimer.value);
   }
@@ -500,15 +467,7 @@ const handleCVDelivery = async (cv) => {
     if (response.code === 1) {
       if (response.data.fail_count === 0) {
         openDialog(3);
-        // 通知副屏更新数据
-        try {
-          if (window.android && window.android.notifySecondaryScreenUpdate) {
-            window.android.notifySecondaryScreenUpdate('resume_delivered');
-            console.log('已通知副屏更新数据');
-          }
-        } catch (notifyError) {
-          console.error('通知副屏失败:', notifyError);
-        }
+        sendToSecondaryScreen('resumeDelivered');
       } else {
         response.data.details.forEach((item) => {
           if (item.status === 'fail') {
