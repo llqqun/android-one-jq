@@ -134,6 +134,22 @@ const router = useRouter();
 // 屏幕类型
 const screenType = ref('');
 const deviceId = ref('');
+const hasCalledSaveEquipment = ref(false);
+
+const saveRecruitmentEquipment = async (id) => {
+  if (hasCalledSaveEquipment.value || !id) return;
+  hasCalledSaveEquipment.value = true;
+  try {
+    await loginApi.saveRecruitmentEquipment({
+      school_id: resumeStore.school_id,
+      deviceId: id,
+      custom_name: ''
+    });
+    console.log('设备信息上报成功');
+  } catch (error) {
+    console.error('设备信息上报失败:', error);
+  }
+};
 
 // 登录弹窗状态
 const showLoginDialog = ref(false);
@@ -476,6 +492,7 @@ onMounted(() => {
     if (id) {
       deviceId.value = id;
       console.log('初始化获取到设备ID:', id);
+      saveRecruitmentEquipment(id);
     }
   }
   
@@ -498,6 +515,7 @@ onMounted(() => {
     deviceId.value = id;
     resumeStore.setDeviceId(id);
     console.log('Home页面收到设备ID:', id);
+    saveRecruitmentEquipment(id);
   });
 
   window.addEventListener('secondaryScreenLoginSuccess', () => {

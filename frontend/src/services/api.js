@@ -151,7 +151,9 @@ export const loginApi = {
     } else {
       return Promise.reject('状态错误')
     }
-  }
+  },
+  // 上传设备信息
+  saveRecruitmentEquipment: (data) => api.post('/machine/login/register_device', data),
 }
 
 export default api
