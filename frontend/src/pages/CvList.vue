@@ -740,6 +740,9 @@ const updateData = async () => {
   if (res.code === 1) {
     companyInfo.value = res.data.company;
     await getJobApplyList();
+    if (currentCategory.value) {
+      await fetchJobApplyList(currentCategory.value);
+    }
   }
 };
 

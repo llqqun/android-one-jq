@@ -12,35 +12,35 @@
         localStorage.setItem(key, value);
       };
 
-      function showIdCardInfo(cardInfo) {
-        console.log('index.html:读取到卡片信息:', cardInfo);
-        window.cardInfo = cardInfo;
-        const event = new CustomEvent('cardInfoReceived', { detail: cardInfo });
-        window.dispatchEvent(event);
-      }
+      // function showIdCardInfo(cardInfo) {
+      //   console.log('index.html:读取到卡片信息:', cardInfo);
+      //   window.cardInfo = cardInfo;
+      //   const event = new CustomEvent('cardInfoReceived', { detail: cardInfo });
+      //   window.dispatchEvent(event);
+      // }
 
-      function showStatus(message, type) {
-        console.log('index.html:状态信息:', { message, type });
-        const event = new CustomEvent('statusMessage', { detail: { message, type } });
-        window.dispatchEvent(event);
-      }
+      // function showStatus(message, type) {
+      //   console.log('index.html:状态信息:', { message, type });
+      //   const event = new CustomEvent('statusMessage', { detail: { message, type } });
+      //   window.dispatchEvent(event);
+      // }
 
-      function setDeviceId(id) {
-        console.log('index.html:获取到设备ID:', id);
-        window.deviceId = id;
-        const event = new CustomEvent('deviceIdReceived', { detail: id });
-        window.dispatchEvent(event);
-      }
+      // function setDeviceId(id) {
+      //   console.log('index.html:获取到设备ID:', id);
+      //   window.deviceId = id;
+      //   const event = new CustomEvent('deviceIdReceived', { detail: id });
+      //   window.dispatchEvent(event);
+      // }
 
-      window.onSecondaryScreenLoginSuccess = function() {
-        console.log('index.html:onSecondaryScreenLoginSuccess副屏登录成功，通知主屏');
-        const event = new CustomEvent('secondaryScreenLoginSuccess');
-        window.dispatchEvent(event);
-        console.log('副屏登录成功事件已触发');
-        console.log('尝试直接跳转到resumeSubmission页面');
-        window.location.href = '#/resumeSubmission';
-        console.log('直接跳转命令已执行');
-      }
+      // window.onSecondaryScreenLoginSuccess = function() {
+      //   console.log('index.html:onSecondaryScreenLoginSuccess副屏登录成功，通知主屏');
+      //   const event = new CustomEvent('secondaryScreenLoginSuccess');
+      //   window.dispatchEvent(event);
+      //   console.log('副屏登录成功事件已触发');
+      //   console.log('尝试直接跳转到resumeSubmission页面');
+      //   window.location.href = '#/resumeSubmission';
+      //   console.log('直接跳转命令已执行');
+      // }
     </script>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>

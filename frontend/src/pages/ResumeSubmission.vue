@@ -245,6 +245,7 @@ const loginPollingTimer = ref(null);
 const qrCodeLoading = ref(false);
 const qrCodeError = ref('');
 const qrUuid = ref('');
+const deviceLoginLoading = ref(false);
 
 // 企业信息
 const companyInfo = ref(null);
@@ -267,15 +268,118 @@ const targetJobs = ref([]);
 // 简历列表
 const cvList = ref([]);
 
+const normalizeDeviceValue = (value) => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const str = String(value).trim();
+  if (!str || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') {
+    return '';
+  }
+  return str;
+};
+
+const getSchoolIdParam = () => String(schoolId.value || 2413);
+
+const getStudentInfoFromLoginResponse = (response) => {
+  return response?.data?.student_info ||null;
+};
+
+const stopLoginPolling = () => {
+  if (loginPollingTimer.value) {
+    clearInterval(loginPollingTimer.value);
+    loginPollingTimer.value = null;
+  }
+};
+
+const handleDeviceLoginResponse = async (response) => {
+  if (response.code === 1) {
+    const loginStudentInfo = getStudentInfoFromLoginResponse(response);
+    if (!loginStudentInfo) {
+      showToast('登录成功，但未返回学生信息');
+      return;
+    }
+    studentInfo.value = loginStudentInfo;
+    showToast('登录成功');
+    stopLoginPolling();
+    await handleLoginSuccess();
+  } else {
+    showToast('登录失败：' + (response.msg || '请稍后重试'));
+  }
+};
+
+const getCampusCardNo = (cardInfo) => {
+  return (
+    normalizeDeviceValue(cardInfo?.card_no) ||
+    normalizeDeviceValue(cardInfo?.cardNo) ||
+    normalizeDeviceValue(cardInfo?.snrHex) ||
+    normalizeDeviceValue(cardInfo?.cardNumber) ||
+    normalizeDeviceValue(cardInfo?.no)
+  );
+};
+
+const handleQRCodeReceived = async (event) => {
+  const qrcodeContent = normalizeDeviceValue(event.detail);
+  console.log('收到二维码读码数据:', qrcodeContent);
+  if (!qrcodeContent || studentInfo.value || deviceLoginLoading.value) {
+    return;
+  }
+
+  deviceLoginLoading.value = true;
+  try {
+    const response = await loginApi.qrLogin({
+      school_id: getSchoolIdParam(),
+      qrcode_content: qrcodeContent,
+    });
+    console.log('二维码读码登录响应:', response);
+    await handleDeviceLoginResponse(response);
+  } catch (error) {
+    console.error('二维码读码登录失败:', error);
+    showToast('登录失败，请稍后重试');
+  } finally {
+    deviceLoginLoading.value = false;
+  }
+};
+
+const handleCampusCardLogin = async (cardNo) => {
+  if (!cardNo || studentInfo.value || deviceLoginLoading.value) {
+    return;
+  }
+
+  deviceLoginLoading.value = true;
+  try {
+    const response = await loginApi.cardLogin({
+      school_id: getSchoolIdParam(),
+      card_no: String(cardNo),
+    });
+    console.log('校园卡登录响应:', response);
+    await handleDeviceLoginResponse(response);
+  } catch (error) {
+    console.error('校园卡登录失败:', error);
+    showToast('登录失败，请稍后重试');
+  } finally {
+    deviceLoginLoading.value = false;
+  }
+};
+
 // 监听卡片信息事件
 const handleCardInfoReceived = async (event) => {
   console.log('收到卡片信息:', event.detail);
   const cardInfo = event.detail;
+  if (studentInfo.value || deviceLoginLoading.value) {
+    return;
+  }
+  const cardNo = getCampusCardNo(cardInfo);
+  if (!cardInfo?.idNumber && cardNo) {
+    await handleCampusCardLogin(cardNo);
+    return;
+  }
   if (cardInfo && cardInfo.idNumber) {
+    deviceLoginLoading.value = true;
     try {
       // 调用身份证登录接口
       const response = await loginApi.loginByIdCard({
-        school_id: schoolId.value || 2413,
+        school_id: getSchoolIdParam(),
         id_card_no: cardInfo.idNumber,
       });
       console.log('身份证登录响应:', response);
@@ -296,6 +400,8 @@ const handleCardInfoReceived = async (event) => {
     } catch (error) {
       console.error('身份证登录失败:', error);
       showToast('登录失败，请稍后重试');
+    } finally {
+      deviceLoginLoading.value = false;
     }
   }
 };
@@ -347,6 +453,7 @@ const handleScreenUpdate = (message) => {
 onMounted(async () => {
   // 监听卡片信息事件
   window.addEventListener('cardInfoReceived', handleCardInfoReceived);
+  window.addEventListener('qrCodeReceived', handleQRCodeReceived);
   window.addEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess);
   window.addEventListener('deviceIdReceived', handleDeviceIdReceived);
 
@@ -378,6 +485,7 @@ onMounted(async () => {
 onUnmounted(() => {
   // 移除事件监听
   window.removeEventListener('cardInfoReceived', handleCardInfoReceived);
+  window.removeEventListener('qrCodeReceived', handleQRCodeReceived);
   window.removeEventListener('secondaryScreenLoginSuccess', handleSecondaryScreenLoginSuccess);
   window.removeEventListener('deviceIdReceived', handleDeviceIdReceived);
   // 移除屏幕更新事件监听
@@ -539,6 +647,10 @@ const handleExitLogin = () => {
 
 const handleContinueDelivery = () => {
   console.log('继续投递简历');
+  if (timer.value) {
+    clearInterval(timeNum.value);
+    timeNum.value = null;
+  }
   closeDialog();
 };
 const closeDialog = () => {

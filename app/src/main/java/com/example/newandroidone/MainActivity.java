@@ -356,7 +356,8 @@ public class MainActivity extends AppCompatActivity implements CardReaderCallbac
                 "\"address\":\"" + cardInfo.getAddress() + "\"," +
                 "\"depart\":\"" + cardInfo.getDepart() + "\"," +
                 "\"validity\":\"" + cardInfo.getValidity() + "\"," +
-                "\"photo\":\"" + cardInfo.getPhotoBase64() + "\"" +
+                "\"photo\":\"" + cardInfo.getPhotoBase64() + "\"," +
+                "\"snrHex\":\"" + cardInfo.getSnrHex() + "\"" +
                 "}";
         // 传递读卡信息给主屏幕
         webView.evaluateJavascript("javascript:showStatus('读卡成功', 'success')", null);
