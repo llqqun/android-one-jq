@@ -6,7 +6,7 @@
     </div>
 
     <!-- 功能调试区域 -->
-    <div class="debug-section">
+    <div v-if="devMode" class="debug-section">
       <div class="debug-header">
         <span class="section-title">功能调试</span>
         <div class="debug-buttons">
@@ -126,10 +126,13 @@ import { loginApi } from '../services/api';
 import { useResumeStore } from '../store/resume';
 import { showToast } from 'vant';
 import { encryptPassword, getDevScreen } from '@/utils/index.js';
+import config from '../utils/config';
 
 const resumeStore = useResumeStore();
 
 const router = useRouter();
+
+const devMode = ref(config.debugMode)
 
 // 屏幕类型
 const screenType = ref('');
